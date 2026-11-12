@@ -24,7 +24,41 @@ QtObject {
     property color accent: "#7aa2d6"
     property color accentSoft: "#223144"
 
+    // Rows: the one under the cursor, and the one under the mouse.
+    property color cursorRow: "#223144"
+    property color hoverRow: "#1c2029"
+    // The cursor in a column the keys are not in (columns view).
+    property color restingRow: "#1f242c"
+    property color treeGuide: "#343a45"
+
+    // File icons: folders in the accent's family, files by what they hold.
+    property color folder: "#6f93c4"
+    property color folderTab: "#5a7aa6"
+    property var categoryColors: ({
+        image: "#b48ead",
+        audio: "#d08770",
+        video: "#c57b8f",
+        text: "#a3acb9",
+        code: "#8fbf9f",
+        document: "#d6b46a",
+        archive: "#a88f6a",
+        file: "#7d8592"
+    })
+    function categoryColor(category) {
+        return categoryColors[category] ?? categoryColors.file
+    }
+
     property int headerHeight: 52
+    property int rowHeight: 30
+    property int iconSize: 18
+    property int indent: 18
+    property int sizeColumn: 96
+    property int dateColumn: 150
+    // Grid tiles and the columns view's columns.
+    property int tileWidth: 112
+    property int tileHeight: 104
+    property int tileIcon: 44
+    property int columnWidth: 240
     property int sidebarWidth: 220
     property int spacing: 12
     property int radius: 8

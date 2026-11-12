@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Marc Mironescu
 
-# riley-files: the program people start. QML lays the window out; the C++ here wires the
-# core library to it and makes the decisions.
+# riley-ui: the RileyFiles QML module (the window and its parts) with the C++ that makes its
+# decisions. A library of its own, so the program and the interface tests load the very same
+# window with the very same C++ behind it.
+#
+# riley-files: the program people start. It reads the command line and shows one window.
 
-qt_add_executable(riley-files
-    main.cpp
-    uicheck.h uicheck.cpp
+qt_add_library(riley-ui SHARED
+    browser.h browser.cpp
+    foldercolumn.h foldercolumn.cpp
+    appwindow.h appwindow.cpp
+    commandline.h commandline.cpp
+    coretypes.h
 )
 
 set(rf_qml_files
@@ -15,6 +21,15 @@ set(rf_qml_files
     qml/HeaderBar.qml
     qml/Sidebar.qml
     qml/ContentArea.qml
+    qml/FileList.qml
+    qml/FileRow.qml
+    qml/FileIcon.qml
+    qml/TreeGuide.qml
+    qml/FileGrid.qml
+    qml/FileTile.qml
+    qml/ColumnsView.qml
+    qml/ColumnPane.qml
+    qml/ColumnRow.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.
@@ -27,22 +42,39 @@ foreach(file IN LISTS rf_qml_files)
     set_source_files_properties(${file} PROPERTIES QT_RESOURCE_ALIAS ${name})
 endforeach()
 
-qt_add_qml_module(riley-files
+qt_add_qml_module(riley-ui
     URI RileyFiles
     VERSION 1.0
+    # The library is linked straight into the program and the tests, so no plugin is needed.
+    NO_PLUGIN
     QML_FILES ${rf_qml_files}
+)
+
+target_include_directories(riley-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(riley-ui
+    PUBLIC riley-core Qt6::Gui Qt6::Qml Qt6::Quick
+    PRIVATE riley_warnings)
+
+set_target_properties(riley-ui PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR})
+
+qt_add_executable(riley-files
+    main.cpp
+    uicheck.h uicheck.cpp
 )
 
 target_compile_definitions(riley-files PRIVATE
     RILEY_FILES_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(riley-files PRIVATE
-    riley-core
+    riley-ui
     riley_warnings
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
 )
 
 install(TARGETS riley-files
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# A private library of the app: the runtime file only, no development link or headers.
+install(TARGETS riley-ui
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} NAMELINK_SKIP)

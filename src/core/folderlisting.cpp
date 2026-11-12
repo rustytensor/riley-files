@@ -29,6 +29,12 @@ DirEntry entryFromInfo(const QFileInfo &info)
 
 ListingResult listFolder(const QString &path, const ListingOptions &options)
 {
+    return listFolder(path, options, SortKey::Name, {});
+}
+
+ListingResult listFolder(const QString &path, const ListingOptions &options, SortKey key,
+                         const std::function<bool()> &shouldStop)
+{
     ListingResult result;
 
     const QFileInfo folder(path);
@@ -48,10 +54,23 @@ ListingResult listFolder(const QString &path, const ListingOptions &options)
         filters |= QDir::Hidden;
 
     QDirIterator it(path, filters);
-    while (it.hasNext())
+    int sinceCheck = 0;
+    while (it.hasNext()) {
         result.entries.append(entryFromInfo(it.nextFileInfo()));
+        if (shouldStop && ++sinceCheck == 256) {
+            sinceCheck = 0;
+            if (shouldStop()) {
+                result.entries.clear();
+                return result;
+            }
+        }
+    }
 
-    EntryOrder().sort(result.entries);
+    if (shouldStop && shouldStop()) {
+        result.entries.clear();
+        return result;
+    }
+    EntryOrder(key).sort(result.entries);
     return result;
 }
 

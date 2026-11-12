@@ -8,6 +8,7 @@ add_library(riley-core SHARED
     direntry.h
     entryorder.h entryorder.cpp
     folderlisting.h folderlisting.cpp
+    foldermodel.h foldermodel.cpp
 )
 
 include(GenerateExportHeader)
@@ -29,6 +30,10 @@ target_include_directories(riley-core PUBLIC
 target_link_libraries(riley-core
     PUBLIC Qt6::Core
     PRIVATE riley_warnings)
+
+# A description of the core's classes, so the interface can name them to QML without the core
+# knowing anything of QML.
+qt_extract_metatypes(riley-core)
 
 # A private library of the app: the runtime file only, no development link or headers.
 install(TARGETS riley-core

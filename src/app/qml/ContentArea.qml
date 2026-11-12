@@ -1,28 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Marc Mironescu
 
+pragma ComponentBehavior: Bound
+
 import QtQuick
 
-// Where a folder's files are shown. Empty until browsing arrives.
+// Where a folder's files are shown, in the view the browser says. The grid and the columns
+// are made only while they are shown.
 Rectangle {
+    id: area
+
+    required property Browser browser
+
     color: Theme.content
 
-    Column {
-        anchors.centerIn: parent
-        spacing: Theme.spacing / 2
+    FileList {
+        anchors.fill: parent
+        browser: area.browser
+        visible: area.browser.view === Browser.List
+    }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "No folder open"
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontLarge
+    Loader {
+        anchors.fill: parent
+        active: area.browser.view === Browser.Grid
+        sourceComponent: Component {
+            FileGrid { browser: area.browser }
         }
+    }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "Folders you open will appear here."
-            color: Theme.textFaint
-            font.pixelSize: Theme.fontNormal
+    Loader {
+        anchors.fill: parent
+        active: area.browser.view === Browser.Columns
+        sourceComponent: Component {
+            ColumnsView { browser: area.browser }
         }
     }
 }
