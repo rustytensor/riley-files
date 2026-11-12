@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marc Mironescu
+[Desktop Entry]
+Type=Application
+Name=Files
+GenericName=File Manager
+Comment=Browse and organise your files
+Exec=riley-files %U
+Icon=riley-files
+Terminal=false
+StartupNotify=true
+StartupWMClass=riley-files
+MimeType=inode/directory;
+Categories=System;FileTools;FileManager;
+Keywords=folder;files;browser;explorer;
