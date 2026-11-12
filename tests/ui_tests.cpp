@@ -222,9 +222,9 @@ void UiTests::uiColumnsBrowse()
 
     ui.press(Qt::Key_Left);
     QTRY_VERIFY(!column(3));
-    QCOMPARE(ui.browser().activeColumn(), 1);
+    QCOMPARE(ui.browser().activeColumn(), 0);
+    QCOMPARE(UiHarness::currentName(column(1)), u"Alpha"_s);
     QCOMPARE(UiHarness::shownNames(column(2)), (QStringList{u"Beta"_s, u"d.txt"_s}));
-    QCOMPARE(UiHarness::currentName(column(2)), u"Beta"_s);
 
     QVERIFY2(ui.qmlWarnings().isEmpty(), qPrintable(ui.qmlWarnings().join(u'\n')));
 }

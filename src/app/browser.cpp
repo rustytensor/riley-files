@@ -599,7 +599,7 @@ void Browser::setActiveColumn(int column)
 
 // The columns view. Up and Down move in the active column, and a folder the cursor moves onto
 // shows in the next column. Right on a folder shows it in the next column; Right again moves
-// into that column. Left closes the next column; with none open, it moves back a column, and
+// into that column. Left moves back a column, onto the folder the column it left shows, and
 // from the first column it goes up a folder.
 bool Browser::columnsKey(int key)
 {
@@ -671,12 +671,12 @@ bool Browser::columnsRight()
 
 bool Browser::columnsLeft()
 {
-    if (m_activeColumn + 1 < m_columns.size()) {
-        closeColumnsAfter(m_activeColumn);
-        return true;
-    }
+    // As in Finder: the cursor goes back to the folder this column shows, and the column it
+    // left stays open beside it. Anything further right closes.
     if (m_activeColumn > 0) {
-        setActiveColumn(m_activeColumn - 1);
+        const int back = m_activeColumn - 1;
+        closeColumnsAfter(back + 1);
+        setActiveColumn(back);
         return true;
     }
     goUp();
