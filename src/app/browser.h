@@ -13,6 +13,8 @@
 #include "drives.h"
 #include "filesearch.h"
 #include "foldermodel.h"
+#include "indexerclient.h"
+#include "indexsettings.h"
 #include "graphbuilder.h"
 #include "networkplaces.h"
 #include "panewidths.h"
@@ -37,6 +39,7 @@
 #include <memory>
 
 class QSettings;
+class QTimer;
 
 // The window's state and every decision about it: which folder is shown, where the cursor is,
 // the way back and forward, the view and the tree. QML shows what this says and passes the keys
@@ -317,6 +320,19 @@ public:
     // Opens files with their default application (the first one for their type).
     void openFiles(const QStringList &paths);
 
+    // The search index (browserindex.cpp): what the Preferences' Index page sets, and how far
+    // the index is ("1,100 files indexed, 0.4 MB"; empty before it was read).
+    Riley::IndexSettings indexSettings() const { return m_index; }
+    QString indexStatusText() const;
+    QString indexStateText() const;
+    // Reads how far the index is again, off the UI thread.
+    void refreshIndexStatus();
+    // Starts the indexer service through systemd's user manager ("systemctl --user start
+    // riley-files-indexer.service", an argument list) when indexing is on in `settingsFile` and
+    // no service answers on its socket. The program does this as it starts, so the first run
+    // makes the index. True when it was asked to start.
+    static bool startIndexer(const QString &settingsFile = QString());
+
     // The README (browserreadme.cpp).
     QString readmeName() const { return m_readmeName; }
     QString readmeHtml() const { return m_readmeHtml; }
@@ -493,6 +509,13 @@ private:
     void addActions();
     // Registers every option of the Preferences and what each changes (browserprefs.cpp).
     void addPreferences();
+    // The Index page of the Preferences, made again whenever its lists change.
+    void addIndexPage();
+    void showIndexOptions();
+    // Keeps the index settings in the settings file and tells the indexer service.
+    void saveIndexSettings();
+    void indexCommand(const QString &command);
+    void setIndexStatus(const Riley::IndexStatus &status);
     void applyPreference(const QString &id, const QString &value);
     // Open With: the applications for the file under the cursor, the default first, then
     // Always Use for This Type and Other Application (browserapps.cpp).
@@ -621,10 +644,19 @@ private:
     QString m_searchCursorPath; // the result the cursor is on (path and line), kept as rows come in
     int m_searchCursorLine = 0;
 
+    Riley::IndexSettings m_index;
+    int m_indexPage = -1;
+    Riley::IndexStatus m_indexStatus;
+    bool m_indexStatusRead = false;
+    bool m_indexStatusAsked = false;
+    QTimer *m_indexTimer = nullptr;
+
     QString m_readmeName;
     QString m_readmeHtml;
     QString m_readmeFolder;   // the folder the README shown is of
     quint64 m_readmeAsk = 0;  // the latest reading asked for; older answers are dropped
+    // Where the index's status is read; gone before the rest, as the README's readers.
+    std::unique_ptr<QThreadPool> m_indexPool;
     // Last, so it is gone (its readers finished) before anything they could answer to.
     std::unique_ptr<QThreadPool> m_readmePool;
 };

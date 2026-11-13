@@ -199,6 +199,7 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
 
     addActions();
     addPreferences();
+    addIndexPage();
     m_model->setFoldersFirst(m_prefs->isOn(QStringLiteral("foldersFirst")));
     // The list view's table shows what git says about a folder in a repository.
     m_model->setGitEnabled(true);

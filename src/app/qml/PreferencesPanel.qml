@@ -5,9 +5,11 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// The Preferences (Ctrl+,): one row per option, in the sections the browser lists them in. A
-// switch turns with a click or Space, a choice is clicked or stepped with Left and Right, a text
-// is edited in place. Every change is kept and applied at once; Escape or a click outside closes.
+// The Preferences (Ctrl+,): pages of options (tabs at the top: the options, the search index),
+// one row per option, in the sections the browser lists them in. A switch turns with a click or
+// Space, a choice is clicked or stepped with Left and Right, a text is edited in place, a button
+// is pressed, and an item of a list goes with its Remove button (or Delete). Every change is kept
+// and applied at once; Escape or a click outside closes.
 Rectangle {
     id: panel
     objectName: "preferences"
@@ -25,11 +27,26 @@ Rectangle {
     // assistive technology reads; the list keeps it on its current row as the cursor moves. The
     // keys still go on to the browser (Tab, the arrows, Space), which moves the cursor.
     function focusCursor() {
+        // A text being edited keeps the keys.
+        if (!panel.visible || panel.prefs.editing >= 0)
+            return
+        if (panel.prefs.cursor < 0) {
+            pageBar.forceActiveFocus()
+            return
+        }
+        rows.positionViewAtIndex(panel.prefs.cursor, ListView.Contain)
         const row = rows.itemAtIndex(panel.prefs.cursor)
-        if (row && panel.visible)
+        if (row)
             row.forceActiveFocus()
     }
     onVisibleChanged: if (visible) focusCursor()
+
+    // The keys move the cursor between the tabs and the rows, and onto rows scrolled away.
+    Connections {
+        target: panel.prefs
+        function onCursorChanged() { Qt.callLater(panel.focusCursor) }
+        function onModelReset() { Qt.callLater(panel.focusCursor) }
+    }
 
     // A click outside the card closes the Preferences, as Escape does; it is not a control.
     MouseArea {
@@ -44,7 +61,8 @@ Rectangle {
         id: card
         anchors.centerIn: parent
         width: Math.min(parent.width - Theme.spacing * 4, 680)
-        height: Math.min(parent.height - Theme.spacing * 4, rows.contentHeight + title.height + Theme.spacing * 4)
+        height: Math.min(parent.height - Theme.spacing * 4,
+                         rows.contentHeight + title.height + pageBar.height + Theme.spacing * 5)
         radius: Theme.radius * 1.5
         color: Theme.card
         border.color: Theme.cardBorder
@@ -73,11 +91,66 @@ Rectangle {
             font.pixelSize: Theme.fontSmall
         }
 
+        // The pages, as tabs. The keys reach them as the row above the first option (the cursor
+        // -1): Left and Right turn the pages.
+        Row {
+            id: pageBar
+            objectName: "prefPages"
+            x: Theme.spacing * 2
+            anchors { top: title.bottom; topMargin: Theme.spacing }
+            spacing: 4
+            Accessible.role: Accessible.PageTabList
+            Accessible.name: qsTr("Pages")
+            Accessible.focusable: true
+            Accessible.focused: activeFocus
+
+            Repeater {
+                model: panel.prefs.pages
+
+                delegate: Rectangle {
+                    id: tab
+
+                    required property string modelData
+                    required property int index
+                    readonly property bool chosen: panel.prefs.page === index
+
+                    objectName: "prefPage_" + modelData
+                    Accessible.role: Accessible.PageTab
+                    Accessible.name: modelData
+                    Accessible.checkable: true
+                    Accessible.checked: chosen
+                    Accessible.onPressAction: panel.prefs.page = tab.index
+                    width: tabText.implicitWidth + Theme.spacing * 2
+                    height: Theme.buttonHeight - 2
+                    radius: Theme.radius - 2
+                    color: chosen ? Theme.accentSoft : (tabMouse.containsMouse ? Theme.buttonHover : Theme.button)
+                    Behavior on color { ColorAnimation { duration: Theme.quick } }
+                    border.color: chosen ? Theme.accent : Theme.none
+                    border.width: pageBar.activeFocus && chosen ? Theme.focusWidth : 1
+
+                    Text {
+                        id: tabText
+                        anchors.centerIn: parent
+                        text: tab.modelData
+                        color: tab.chosen ? Theme.text : Theme.textMuted
+                        font.pixelSize: Theme.fontNormal
+                    }
+
+                    MouseArea {
+                        id: tabMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: panel.prefs.page = tab.index
+                    }
+                }
+            }
+        }
+
         ListView {
             id: rows
             objectName: "preferenceRows"
             anchors {
-                top: title.bottom; topMargin: Theme.spacing
+                top: pageBar.bottom; topMargin: Theme.spacing
                 left: parent.left; leftMargin: Theme.spacing * 2
                 right: parent.right; rightMargin: Theme.spacing * 2
                 bottom: parent.bottom; bottomMargin: Theme.spacing * 1.5
@@ -116,15 +189,22 @@ Rectangle {
                 required property int choice
                 required property bool on
                 required property string value
+                required property string placeholder
+                required property bool removable
+                required property string button
 
                 readonly property bool current: panel.prefs.cursor === index
 
                 objectName: "pref_" + optionId
                 Accessible.role: kind === Preferences.Toggle ? Accessible.CheckBox
-                               : (kind === Preferences.Choice ? Accessible.RadioButton : Accessible.EditableText)
+                               : kind === Preferences.Choice ? Accessible.RadioButton
+                               : kind === Preferences.Text ? Accessible.EditableText
+                               : kind === Preferences.Button ? Accessible.Button
+                               : kind === Preferences.Info ? Accessible.StaticText : Accessible.ListItem
                 Accessible.name: label
                 Accessible.description: kind === Preferences.Choice ? (choices[choice] ?? "") + (hint.length > 0 ? " · " + hint : "")
-                                                                    : hint
+                                      : kind === Preferences.Info ? value + (hint.length > 0 ? " · " + hint : "")
+                                                                  : hint
                 Accessible.focusable: true
                 Accessible.focused: activeFocus
                 Accessible.checkable: kind === Preferences.Toggle
@@ -133,6 +213,8 @@ Rectangle {
                     panel.prefs.setCursor(index)
                     if (kind === Preferences.Toggle)
                         panel.prefs.toggle(index)
+                    else if (kind === Preferences.Button)
+                        panel.prefs.press(index)
                 }
                 width: ListView.view ? ListView.view.width : 0
                 height: Math.max(Theme.rowHeight + 14, texts.implicitHeight + 12)
@@ -153,7 +235,7 @@ Rectangle {
                     id: texts
                     anchors {
                         left: parent.left; leftMargin: Theme.spacing
-                        right: control.left; rightMargin: Theme.spacing
+                        right: remove.left; rightMargin: Theme.spacing
                         verticalCenter: parent.verticalCenter
                     }
                     spacing: 2
@@ -175,12 +257,91 @@ Rectangle {
                     }
                 }
 
+                // Remove, on an item of a list (a folder indexed, a pattern left out).
+                Rectangle {
+                    id: remove
+                    objectName: "prefRemove_" + row.optionId
+                    visible: row.removable
+                    Accessible.role: Accessible.Button
+                    Accessible.name: qsTr("Remove “%1”").arg(row.label)
+                    Accessible.onPressAction: panel.prefs.remove(row.index)
+                    anchors { right: control.left; rightMargin: row.removable && control.width > 0 ? Theme.spacing : 0
+                              verticalCenter: parent.verticalCenter }
+                    width: row.removable ? removeText.implicitWidth + Theme.spacing * 1.5 : 0
+                    height: Theme.buttonHeight - 4
+                    radius: Theme.radius - 2
+                    color: removeMouse.containsMouse ? Theme.buttonHover : Theme.button
+
+                    Text {
+                        id: removeText
+                        anchors.centerIn: parent
+                        text: qsTr("Remove")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSmall
+                    }
+
+                    MouseArea {
+                        id: removeMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: row.removable
+                        onClicked: panel.prefs.remove(row.index)
+                    }
+                }
+
                 Item {
                     id: control
                     anchors { right: parent.right; rightMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
                     width: row.kind === Preferences.Text ? Math.min(260, row.width * 0.45)
-                                                         : (row.kind === Preferences.Choice ? segments.width : 40)
+                         : row.kind === Preferences.Choice ? segments.width
+                         : row.kind === Preferences.Toggle ? 40
+                         : row.kind === Preferences.Button ? pressable.width
+                         : row.kind === Preferences.Info ? info.implicitWidth : 0
                     height: Theme.buttonHeight - 4
+
+                    // A line that only tells (how far the index is).
+                    Text {
+                        id: info
+                        objectName: "prefInfo_" + row.optionId
+                        visible: row.kind === Preferences.Info
+                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                        text: row.kind === Preferences.Info ? row.value : ""
+                        color: Theme.text
+                        font.pixelSize: Theme.fontNormal
+                    }
+
+                    // A button.
+                    Rectangle {
+                        id: pressable
+                        objectName: "prefButton_" + row.optionId
+                        visible: row.kind === Preferences.Button
+                        Accessible.role: Accessible.Button
+                        Accessible.name: row.label
+                        Accessible.onPressAction: panel.prefs.press(row.index)
+                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                        width: buttonText.implicitWidth + Theme.spacing * 2
+                        height: parent.height
+                        radius: Theme.radius - 2
+                        color: buttonMouse.containsMouse ? Theme.buttonHover : Theme.button
+                        border.color: Theme.cardBorder
+                        border.width: 1
+
+                        Text {
+                            id: buttonText
+                            anchors.centerIn: parent
+                            text: row.button
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSmall
+                        }
+
+                        MouseArea {
+                            id: buttonMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: row.kind === Preferences.Button
+                            onClicked: panel.prefs.press(row.index)
+                        }
+                    }
 
                     // A switch.
                     Rectangle {
@@ -277,7 +438,7 @@ Rectangle {
                             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                             visible: !input.activeFocus && row.value.length === 0
                             verticalAlignment: Text.AlignVCenter
-                            text: qsTr("Home")
+                            text: row.placeholder
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSmall
                         }

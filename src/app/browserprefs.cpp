@@ -39,8 +39,10 @@ void Browser::addPreferences()
     const QString appearance = tr("Appearance");
     const QString behaviour = tr("Behaviour");
 
-    p.add({general, u"startFolder"_s, tr("Start folder"), tr("Where a new window opens; empty for the home folder"),
-           Preferences::Text, {}, {}, u"general/startFolder"_s, {}, {}, {}});
+    Option start{general, u"startFolder"_s, tr("Start folder"), tr("Where a new window opens; empty for the home folder"),
+                 Preferences::Text, {}, {}, u"general/startFolder"_s, {}, {}, {}};
+    start.placeholder = tr("Home");
+    p.add(start);
     p.add({general, u"defaultView"_s, tr("Default view"), tr("The view a new window starts in"), Preferences::Choice,
            {tr("Last used"), tr("List"), tr("Grid"), tr("Columns")}, {QString(), u"list"_s, u"grid"_s, u"columns"_s},
            u"View/default"_s, QString(), {}, {}});

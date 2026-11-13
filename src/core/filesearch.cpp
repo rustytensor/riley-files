@@ -135,6 +135,75 @@ bool parseMatch(const QByteArray &line, const QString &folder, SearchHit &hit)
     return true;
 }
 
+// Whether `path` is `folder` or below it (both cleaned and absolute).
+bool atOrBelow(const QString &path, const QString &folder)
+{
+    if (folder == QLatin1String("/"))
+        return path.startsWith(QLatin1Char('/'));
+    return path == folder || (path.startsWith(folder) && path.at(folder.size()) == QLatin1Char('/'));
+}
+
+// A path as a ripgrep glob that matches only itself: the glob's special characters escaped.
+QString literalGlob(const QString &path)
+{
+    QString glob;
+    for (const QChar c : path) {
+        if (QStringLiteral("\\*?[]{}!").contains(c))
+            glob += QLatin1Char('\\');
+        glob += c;
+    }
+    return glob;
+}
+
+// One line of a file found through the index, as a hit: trimmed and cut the way ripgrep's
+// lines are, with `spans` (start and length pairs in `line`) moved to match.
+SearchHit lineHit(const QString &root, const QString &path, int number, const QString &line, const QList<int> &spans)
+{
+    SearchHit hit;
+    hit.path = path;
+    hit.relativePath = relativeTo(root, path);
+    hit.line = number;
+    hit.fromIndex = true;
+    qsizetype lead = 0;
+    while (lead < line.size() && (line.at(lead) == QLatin1Char(' ') || line.at(lead) == QLatin1Char('\t')))
+        ++lead;
+    qsizetype from = lead;
+    if (line.size() - from > FileSearch::LineWidth && !spans.isEmpty())
+        from = std::max(lead, std::min<qsizetype>(spans.at(0) - FileSearch::LineWidth / 3,
+                                                  line.size() - FileSearch::LineWidth));
+    hit.text = line.mid(from, FileSearch::LineWidth);
+    for (qsizetype i = 0; i + 1 < spans.size(); i += 2) {
+        const int start = int(spans.at(i) - from);
+        if (start < 0 || start >= hit.text.size())
+            continue;
+        hit.matches << start << std::min(spans.at(i + 1), int(hit.text.size()) - start);
+    }
+    return hit;
+}
+
+// Where each of `needles` is found in `line`, ignoring case: start and length pairs, in order.
+QList<int> spansIn(const QString &line, const QStringList &needles)
+{
+    QList<std::pair<int, int>> found;
+    for (const QString &needle : needles) {
+        if (needle.isEmpty())
+            continue;
+        for (qsizetype at = line.indexOf(needle, 0, Qt::CaseInsensitive); at >= 0;
+             at = line.indexOf(needle, at + needle.size(), Qt::CaseInsensitive))
+            found.append({int(at), int(needle.size())});
+    }
+    std::sort(found.begin(), found.end());
+    QList<int> spans;
+    int end = -1;
+    for (const auto &[start, length] : std::as_const(found)) {
+        if (start < end)
+            continue;
+        spans << start << length;
+        end = start + length;
+    }
+    return spans;
+}
+
 struct WalkEntry
 {
     QByteArray name;
@@ -143,6 +212,8 @@ struct WalkEntry
 };
 
 } // namespace
+
+SearchIndex::~SearchIndex() = default;
 
 FileSearch::FileSearch(QObject *parent)
     : QAbstractListModel(parent)
@@ -260,6 +331,18 @@ QSet<Qt::HANDLE> FileSearch::searchThreads() const
 {
     QMutexLocker locker(&m_threadsLock);
     return m_threads;
+}
+
+void FileSearch::setIndex(std::shared_ptr<SearchIndex> index)
+{
+    QMutexLocker locker(&m_indexLock);
+    m_index = std::move(index);
+}
+
+std::shared_ptr<SearchIndex> FileSearch::searchIndex() const
+{
+    QMutexLocker locker(&m_indexLock);
+    return m_index;
 }
 
 void FileSearch::noteThread()
@@ -412,10 +495,39 @@ void FileSearch::receive(quint64 generation, const QList<SearchHit> &batch, bool
     }
 }
 
+bool FileSearch::namesFromIndex(quint64 generation, const QString &root, const QString &query, bool showHidden)
+{
+    const std::shared_ptr<SearchIndex> source = searchIndex();
+    QList<SearchIndex::Name> names;
+    if (!source || !source->names(root, query, showHidden, Limit + 1, names))
+        return false;
+    QList<SearchHit> hits;
+    hits.reserve(names.size());
+    for (const SearchIndex::Name &name : std::as_const(names)) {
+        if (name.path == root || !atOrBelow(name.path, root))
+            continue;
+        SearchHit hit;
+        hit.path = name.path;
+        hit.relativePath = relativeTo(root, name.path);
+        hit.isDir = name.isDir;
+        hit.fromIndex = true;
+        hits.append(std::move(hit));
+    }
+    std::sort(hits.begin(), hits.end(), hitBefore);
+    const bool capped = hits.size() > Limit;
+    if (capped)
+        hits.resize(Limit);
+    post(generation, std::move(hits), true, capped, {});
+    return true;
+}
+
 void FileSearch::runNames(quint64 generation, QString root, QString query, bool showHidden)
 {
     noteThread();
     const auto stale = [this, generation] { return m_wanted->load() != generation; };
+    // A search typed over before its turn came is not run at all.
+    if (stale() || namesFromIndex(generation, root, query, showHidden))
+        return;
 
     QList<SearchHit> pending;
     QElapsedTimer sincePost;
@@ -527,10 +639,78 @@ void FileSearch::runNames(quint64 generation, QString root, QString query, bool 
     post(generation, std::exchange(pending, {}), true, capped, {});
 }
 
+QList<SearchHit> FileSearch::indexedLines(const QString &root, const QString &query, bool showHidden,
+                                          const std::function<bool()> &stale, bool &capped)
+{
+    QList<SearchHit> hits;
+    const std::shared_ptr<SearchIndex> source = searchIndex();
+    QStringList files;
+    if (!source || !source->contents(root, query, showHidden, Limit + 1, files))
+        return hits;
+    const QStringList words = query.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    // The files the index names are read again, so the lines shown are the ones on disk now.
+    constexpr qint64 MaxRead = 64 * 1024 * 1024;
+    constexpr int PerFile = 5; // as many as ripgrep is asked for
+    for (const QString &path : std::as_const(files)) {
+        if (stale())
+            return {};
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly) || file.size() > MaxRead)
+            continue;
+        const QString text = QString::fromUtf8(file.readAll());
+        const QStringList lines = text.split(QLatin1Char('\n'));
+        // The whole query where a line holds it, as ripgrep would find it; else the lines that
+        // hold its words.
+        for (const QStringList &needles : {QStringList{query}, words}) {
+            int taken = 0;
+            for (qsizetype i = 0; i < lines.size() && taken < PerFile; ++i) {
+                QString line = lines.at(i);
+                if (line.endsWith(QLatin1Char('\r')))
+                    line.chop(1);
+                const QList<int> spans = spansIn(line, needles);
+                if (spans.isEmpty())
+                    continue;
+                if (hits.size() == Limit) {
+                    capped = true;
+                    return hits;
+                }
+                hits.append(lineHit(root, path, int(i + 1), line, spans));
+                ++taken;
+            }
+            if (taken > 0)
+                break;
+        }
+    }
+    return hits;
+}
+
 void FileSearch::runContents(quint64 generation, QString root, QString query, bool showHidden)
 {
     noteThread();
     const auto stale = [this, generation] { return m_wanted->load() != generation; };
+    if (stale())
+        return;
+
+    // The folders whose contents the index holds are answered from it; ripgrep looks through
+    // the rest.
+    const std::shared_ptr<SearchIndex> source = searchIndex();
+    const QStringList covered = source ? source->contentFolders(root) : QStringList();
+    int found = 0;
+    bool capped = false;
+    if (!covered.isEmpty()) {
+        QList<SearchHit> hits = indexedLines(root, query, showHidden, stale, capped);
+        if (stale())
+            return;
+        found = int(hits.size());
+        const bool whole = std::any_of(covered.begin(), covered.end(),
+                                       [&root](const QString &folder) { return atOrBelow(root, folder); });
+        if (whole || capped) {
+            post(generation, std::move(hits), true, capped, {});
+            return;
+        }
+        if (!hits.isEmpty())
+            post(generation, std::move(hits), false, false, {});
+    }
 
     const QString program = QStandardPaths::findExecutable(QStringLiteral("rg"));
     if (program.isEmpty()) {
@@ -549,7 +729,13 @@ void FileSearch::runContents(quint64 generation, QString root, QString query, bo
     };
     if (showHidden)
         arguments << QStringLiteral("--hidden");
+    for (const QString &folder : std::as_const(covered))
+        arguments << QStringLiteral("--glob") << QLatin1Char('!') + literalGlob(folder);
     arguments << QStringLiteral("--regexp") << query << QStringLiteral("--") << root;
+    const auto inCovered = [&covered](const QString &path) {
+        return std::any_of(covered.begin(), covered.end(),
+                           [&path](const QString &folder) { return atOrBelow(path, folder); });
+    };
 
     QProcess rg;
     rg.setProgram(program);
@@ -565,8 +751,6 @@ void FileSearch::runContents(quint64 generation, QString root, QString query, bo
     QList<SearchHit> pending;
     QElapsedTimer sincePost;
     sincePost.start();
-    int found = 0;
-    bool capped = false;
     QByteArray buffer;
 
     const auto takeLines = [&] {
@@ -576,7 +760,7 @@ void FileSearch::runContents(quint64 generation, QString root, QString query, bo
             if (end < 0)
                 break;
             SearchHit hit;
-            if (parseMatch(buffer.mid(from, end - from), root, hit)) {
+            if (parseMatch(buffer.mid(from, end - from), root, hit) && !inCovered(hit.path)) {
                 if (found == Limit) {
                     capped = true; // one more than is kept: the rows are full
                     break;

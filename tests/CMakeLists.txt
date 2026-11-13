@@ -211,3 +211,32 @@ target_link_libraries(repoui_tests PRIVATE riley-ui riley_warnings Qt6::Test Qt6
 
 add_test(NAME repoui_tests COMMAND repoui_tests)
 set_tests_properties(repoui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The search index on real files: the first scan with its exclude patterns, name queries on a
+# 200,000-entry index, contents only in the folders chosen, settings applied to what is indexed,
+# Pause, Resume and Rebuild, and the catch-up after a restart by the folders' modified times.
+add_executable(index_tests index_tests.cpp)
+target_link_libraries(index_tests PRIVATE riley-index riley-core riley_warnings Qt6::Test)
+
+add_test(NAME index_tests COMMAND index_tests)
+set_tests_properties(index_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The change helper on real files and real sockets: its permission filter, bad clients, fanotify on
+# a real file system (as root; skipped otherwise), and the index following the changes it reports.
+add_executable(changes_tests changes_tests.cpp)
+target_link_libraries(changes_tests PRIVATE riley-changes riley-index riley_warnings Qt6::Test)
+
+add_test(NAME changes_tests COMMAND changes_tests)
+set_tests_properties(changes_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The search index with the window: the real indexer service scanning while the window draws on
+# (at nice 10, in the idle I/O class), the Preferences' Index page with the service applying each
+# change (systemctl, first on PATH, starting it), and the search answered from the index, with
+# ripgrep for the folders whose contents it does not hold.
+add_executable(indexui_tests indexui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(indexui_tests PRIVATE riley-ui riley-index riley_warnings Qt6::Test)
+target_compile_definitions(indexui_tests PRIVATE RILEY_INDEXER_BINARY="$<TARGET_FILE:riley-files-indexer>")
+add_dependencies(indexui_tests riley-files-indexer)
+
+add_test(NAME indexui_tests COMMAND indexui_tests)
+set_tests_properties(indexui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 project(riley-files
-    VERSION 0.6.0
+    VERSION 0.7.0
     DESCRIPTION "The file manager of the Riley desktop"
     LANGUAGES CXX)
 
@@ -31,7 +31,13 @@ qt_standard_project_setup(REQUIRES 6.8
 add_library(riley_warnings INTERFACE)
 target_compile_options(riley_warnings INTERFACE -Wall -Wextra)
 
+# Where the systemd units go: the change helper's system service and the indexer's user service.
+set(RILEY_SYSTEMD_SYSTEM_UNIT_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system" CACHE PATH "systemd system unit folder")
+set(RILEY_SYSTEMD_USER_UNIT_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user" CACHE PATH "systemd user unit folder")
+
 add_subdirectory(src/core)
+add_subdirectory(src/changes)
+add_subdirectory(src/index)
 add_subdirectory(src/thumbs)
 add_subdirectory(src/graph)
 add_subdirectory(src/app)

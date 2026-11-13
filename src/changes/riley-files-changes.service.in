@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marc Mironescu
+
+[Unit]
+Description=Riley Files change helper (tells the search index what changed)
+Documentation=https://github.com/rustytensor/riley-files
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/riley-files-changes --socket /run/riley-files/changes.sock
+Restart=on-failure
+RestartSec=5
+
+# Its socket lives here; nothing else is written anywhere.
+RuntimeDirectory=riley-files
+RuntimeDirectoryMode=0755
+UMask=0022
+
+# fanotify needs CAP_SYS_ADMIN, open_by_handle_at needs CAP_DAC_READ_SEARCH; nothing else.
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service fanotify_init fanotify_mark open_by_handle_at
+SystemCallErrorNumber=EPERM
+MemoryMax=64M
+TasksMax=4
+LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target

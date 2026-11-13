@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marc Mironescu
+
+[Unit]
+Description=Riley Files search index
+Documentation=https://github.com/rustytensor/riley-files
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/riley-files-indexer
+# Turned off in Preferences > Index it ends by itself and stays down.
+Restart=on-failure
+RestartSec=10
+
+# The person's own work comes first (the indexer sets these itself too).
+Nice=10
+IOSchedulingClass=idle
+CPUSchedulingPolicy=batch
+
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+MemoryHigh=256M
+
+[Install]
+WantedBy=default.target

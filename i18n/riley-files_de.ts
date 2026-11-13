@@ -629,6 +629,178 @@
         <source>“%1” is not there.</source>
         <translation>„%1“ gibt es nicht.</translation>
     </message>
+    <message>
+        <source>Index</source>
+        <translation>Index</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Ordner</translation>
+    </message>
+    <message>
+        <source>Left out</source>
+        <translation>Ausgelassen</translation>
+    </message>
+    <message>
+        <source>Contents</source>
+        <translation>Inhalt</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Stand</translation>
+    </message>
+    <message>
+        <source>Index files for search</source>
+        <translation>Dateien für die Suche indexieren</translation>
+    </message>
+    <message>
+        <source>Off, search walks the folders each time</source>
+        <translation>Aus: die Suche geht jedes Mal durch die Ordner</translation>
+    </message>
+    <message>
+        <source>Pause indexing</source>
+        <translation>Indexieren anhalten</translation>
+    </message>
+    <message>
+        <source>Changes are kept until it resumes</source>
+        <translation>Änderungen werden bis zum Fortsetzen aufbewahrt</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Anhalten</translation>
+    </message>
+    <message>
+        <source>Resume indexing</source>
+        <translation>Indexieren fortsetzen</translation>
+    </message>
+    <message>
+        <source>The changes kept meanwhile are applied</source>
+        <translation>Die inzwischen aufbewahrten Änderungen werden übernommen</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>Fortsetzen</translation>
+    </message>
+    <message>
+        <source>Rebuild the index</source>
+        <translation>Index neu aufbauen</translation>
+    </message>
+    <message>
+        <source>Every folder is read again from nothing</source>
+        <translation>Jeder Ordner wird von Grund auf neu gelesen</translation>
+    </message>
+    <message>
+        <source>Rebuild</source>
+        <translation>Neu aufbauen</translation>
+    </message>
+    <message>
+        <source>Names and the contents of its files</source>
+        <translation>Namen und der Inhalt seiner Dateien</translation>
+    </message>
+    <message>
+        <source>Names only; switch on for contents too</source>
+        <translation>Nur Namen; einschalten, um auch Inhalte zu indexieren</translation>
+    </message>
+    <message>
+        <source>Add a folder</source>
+        <translation>Ordner hinzufügen</translation>
+    </message>
+    <message>
+        <source>Type its path, then Return</source>
+        <translation>Pfad eingeben, dann Eingabe</translation>
+    </message>
+    <message>
+        <source>/path/to/folder</source>
+        <translation>/pfad/zum/ordner</translation>
+    </message>
+    <message>
+        <source>“%1” is not a folder.</source>
+        <translation>„%1“ ist kein Ordner.</translation>
+    </message>
+    <message>
+        <source>Leave out names like</source>
+        <translation>Namen auslassen wie</translation>
+    </message>
+    <message>
+        <source>A pattern such as *.log; one with a / is matched against the whole path</source>
+        <translation>Ein Muster wie *.log; eines mit / wird mit dem ganzen Pfad verglichen</translation>
+    </message>
+    <message>
+        <source>Size limit for contents</source>
+        <translation>Größengrenze für Inhalte</translation>
+    </message>
+    <message>
+        <source>Larger files are indexed by name only</source>
+        <translation>Größere Dateien werden nur nach Namen indexiert</translation>
+    </message>
+    <message>
+        <source>256 KB</source>
+        <translation>256 KB</translation>
+    </message>
+    <message>
+        <source>1 MB</source>
+        <translation>1 MB</translation>
+    </message>
+    <message>
+        <source>4 MB</source>
+        <translation>4 MB</translation>
+    </message>
+    <message>
+        <source>16 MB</source>
+        <translation>16 MB</translation>
+    </message>
+    <message>
+        <source>64 MB</source>
+        <translation>64 MB</translation>
+    </message>
+    <message>
+        <source>Text files only</source>
+        <translation>Nur Textdateien</translation>
+    </message>
+    <message>
+        <source>The contents of other files are not read</source>
+        <translation>Der Inhalt anderer Dateien wird nicht gelesen</translation>
+    </message>
+    <message>
+        <source>The indexer is not running.</source>
+        <translation>Der Indexer läuft nicht.</translation>
+    </message>
+    <message>
+        <source>No index yet</source>
+        <translation>Noch kein Index</translation>
+    </message>
+    <message>
+        <source>1 file indexed, %1 MB</source>
+        <translation>1 Datei indexiert, %1 MB</translation>
+    </message>
+    <message>
+        <source>%1 files indexed, %2 MB</source>
+        <translation>%1 Dateien indexiert, %2 MB</translation>
+    </message>
+    <message>
+        <source>Turned off</source>
+        <translation>Ausgeschaltet</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Wird gelesen…</translation>
+    </message>
+    <message>
+        <source>The indexer has not started yet</source>
+        <translation>Der Indexer ist noch nicht gestartet</translation>
+    </message>
+    <message>
+        <source>Paused</source>
+        <translation>Angehalten</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>Aktuell</translation>
+    </message>
+    <message>
+        <source>Indexing…</source>
+        <translation>Wird indexiert…</translation>
+    </message>
 </context>
 <context>
     <name>ChooserDialog</name>
@@ -1354,6 +1526,13 @@
     </message>
 </context>
 <context>
+    <name>Preferences</name>
+    <message>
+        <source>Options</source>
+        <translation>Optionen</translation>
+    </message>
+</context>
+<context>
     <name>PreferencesPanel</name>
     <message>
         <source>Preferences</source>
@@ -1364,8 +1543,16 @@
         <translation>↑ ↓ oder Tab wählen · ← → ändern · Leertaste schaltet um · Esc schließt</translation>
     </message>
     <message>
-        <source>Home</source>
-        <translation>Persönlicher Ordner</translation>
+        <source>Pages</source>
+        <translation>Seiten</translation>
+    </message>
+    <message>
+        <source>Remove “%1”</source>
+        <translation>„%1“ entfernen</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Entfernen</translation>
     </message>
 </context>
 <context>

@@ -58,5 +58,8 @@ int main(int argc, char *argv[])
     }
     if (!window.window())
         return 1;
+    // The search index: on the first run the indexer service is started and makes it; after
+    // that it follows the changes, and is started again whenever it is not running.
+    Browser::startIndexer();
     return app.exec();
 }

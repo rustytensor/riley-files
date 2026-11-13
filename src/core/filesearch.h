@@ -10,11 +10,13 @@
 #include <QMutex>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QThread>
 #include <QThreadPool>
 #include <QVariantMap>
 
 #include <atomic>
+#include <functional>
 #include <memory>
 
 namespace Riley {
@@ -29,6 +31,34 @@ struct SearchHit
     int line = 0;         // contents: the line number, from 1; 0 for a name
     QString text;         // contents: the matching line, trimmed and cut to a readable width
     QList<int> matches;   // contents: start and length pairs of each match within text
+    bool fromIndex = false; // answered by the search index rather than by walking or ripgrep
+};
+
+// What a search index can answer, for FileSearch to ask before it walks the folders or runs
+// ripgrep (the window's is the riley-index database). Asked from FileSearch's worker threads, so
+// an implementation must be safe to call from any thread.
+class RILEYCORE_EXPORT SearchIndex
+{
+public:
+    struct Name
+    {
+        QString path; // absolute
+        bool isDir = false;
+    };
+
+    virtual ~SearchIndex();
+
+    // The names holding `query` (any case) below `folder`, in any order, at most `limit`. False
+    // when the index cannot answer for that folder (none built yet, or the folder not indexed);
+    // the folders are then walked.
+    virtual bool names(const QString &folder, const QString &query, bool showHidden, int limit,
+                       QList<Name> &found) = 0;
+    // The folders at or below `folder`, or holding it, whose files' contents the index answers
+    // for; empty when it answers for none of them.
+    virtual QStringList contentFolders(const QString &folder) = 0;
+    // The files below `folder` whose indexed contents hold every word of `query`, at most `limit`.
+    virtual bool contents(const QString &folder, const QString &query, bool showHidden, int limit,
+                          QStringList &files) = 0;
 };
 
 // Search below a folder, by name or inside files, as rows for a view.
@@ -40,6 +70,10 @@ struct SearchHit
 //
 // Contents: ripgrep (rg) is run as a child process, from a worker thread, with a list of
 // arguments (no shell). Binary files are skipped. Rows are kept in path order, then by line.
+//
+// With a search index set (setIndex), names come from it whenever it answers for the folder,
+// and contents come from it for the folders whose contents it holds, with ripgrep for the rest:
+// the two are merged into the same rows.
 //
 // A new search, stop() or clear() drops the one before at once: whatever it still finds is
 // thrown away, and rg is killed. At most Limit rows are kept; then the search ends and
@@ -124,6 +158,10 @@ public:
 
     static QString missingRipgrepMessage();
 
+    // The index asked first (see SearchIndex); null for none, the way it starts.
+    void setIndex(std::shared_ptr<SearchIndex> index);
+    std::shared_ptr<SearchIndex> searchIndex() const;
+
 signals:
     void started();
     void runningChanged();
@@ -144,6 +182,9 @@ private:
     void cancel();
     void setRunning(bool running);
     void noteThread();
+    bool namesFromIndex(quint64 generation, const QString &root, const QString &query, bool showHidden);
+    QList<SearchHit> indexedLines(const QString &root, const QString &query, bool showHidden,
+                                  const std::function<bool()> &stale, bool &capped);
 
     QList<SearchHit> m_hits;
     QString m_folder;
@@ -159,6 +200,9 @@ private:
 
     mutable QMutex m_threadsLock;
     QSet<Qt::HANDLE> m_threads;
+
+    mutable QMutex m_indexLock;
+    std::shared_ptr<SearchIndex> m_index;
 
     QThreadPool m_pool;
 };
