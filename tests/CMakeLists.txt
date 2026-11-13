@@ -143,7 +143,8 @@ set_tests_properties(versions_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_
 # Return restoring after asking, Restore as Copy from a version's context menu, a folder's
 # version looked through read-only, and every change inside a snapshot refused.
 add_executable(versionsui_tests versionsui_tests.cpp uiharness.h uiharness.cpp)
-target_link_libraries(versionsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+find_package(Qt6 REQUIRED COMPONENTS QuickTest)
+target_link_libraries(versionsui_tests PRIVATE riley-ui riley_warnings Qt6::Test Qt6::QuickTest)
 
 add_test(NAME versionsui_tests COMMAND versionsui_tests)
 set_tests_properties(versionsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
@@ -170,3 +171,32 @@ target_compile_definitions(i18nui_tests PRIVATE
 
 add_test(NAME i18nui_tests COMMAND i18nui_tests)
 set_tests_properties(i18nui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The graph view's library on real files: the tree walked into nodes and edges, folders only for a
+# large tree, and the 3D layout the same every time, its nodes kept apart, made off the UI thread.
+add_executable(graph_tests graph_tests.cpp)
+target_link_libraries(graph_tests PRIVATE riley-graph riley_warnings Qt6::Test)
+
+add_test(NAME graph_tests COMMAND graph_tests)
+set_tests_properties(graph_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The graph view in the window, drawn with real OpenGL and no display: Mesa's software renderer
+# through EGL's surfaceless platform, by a small window system of the test's own
+# (glplatform.cpp, built into the test). Keys through the graph, a drawn frame, the label under
+# the mouse, and what the view says where 3D cannot start.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
+add_executable(graphui_tests graphui_tests.cpp glplatform.cpp uiharness.h uiharness.cpp)
+set_source_files_properties(glplatform.cpp PROPERTIES COMPILE_DEFINITIONS QT_STATICPLUGIN)
+target_link_libraries(graphui_tests PRIVATE riley-ui riley_warnings Qt6::Test Qt6::GuiPrivate EGL)
+
+add_test(NAME graphui_tests COMMAND graphui_tests)
+set_tests_properties(graphui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8")
+
+# The file icons: nine drawings from the program's own SVG files with shapes of their own, used
+# for each kind of file in every view, and drawn at the screen's pixels at twice the scale.
+add_executable(iconui_tests iconui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(iconui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME iconui_tests COMMAND iconui_tests)
+set_tests_properties(iconui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

@@ -44,7 +44,7 @@ Rectangle {
         id: icon
         x: Theme.spacing * 1.5
         y: (Theme.rowHeight - height) / 2
-        category: row.isDir ? "folder" : "file"
+        category: row.browser.categoryOf(row.name, row.isDir)
     }
 
     Text {

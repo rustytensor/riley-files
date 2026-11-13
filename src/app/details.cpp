@@ -3,6 +3,7 @@
 
 #include "details.h"
 
+#include "foldermodel.h"
 #include "translations.h"
 
 #include <QCoreApplication>
@@ -93,15 +94,8 @@ QString FileDetails::categoryFor(const QString &mimeName, bool isDir)
 {
     if (isDir)
         return QStringLiteral("folder");
-    if (mimeName.startsWith(QLatin1String("image/")))
-        return QStringLiteral("image");
-    if (mimeName.startsWith(QLatin1String("audio/")))
-        return QStringLiteral("audio");
-    if (mimeName.startsWith(QLatin1String("video/")))
-        return QStringLiteral("video");
-    if (mimeName.startsWith(QLatin1String("text/")))
-        return QStringLiteral("text");
-    return QStringLiteral("file");
+    // The same kinds as the folder's rows, so a file has one icon wherever it is shown.
+    return Riley::FolderModel::categoryOf(QMimeDatabase().mimeTypeForName(mimeName));
 }
 
 void FileDetails::setPath(const QString &path, bool countHidden)

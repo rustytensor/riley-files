@@ -33,7 +33,9 @@ QString cleanPath(const QString &path)
     return QDir::cleanPath(QFileInfo(path).absoluteFilePath());
 }
 
-QString categoryOf(const QMimeType &mime)
+} // namespace
+
+QString FolderModel::categoryOf(const QMimeType &mime)
 {
     const QString name = mime.name();
     if (name.startsWith(QLatin1String("image/")))
@@ -94,7 +96,12 @@ QString categoryOf(const QMimeType &mime)
     return QStringLiteral("file");
 }
 
-} // namespace
+QString FolderModel::categoryOfName(const QString &name, bool isDir)
+{
+    if (isDir)
+        return QStringLiteral("folder");
+    return categoryOf(QMimeDatabase().mimeTypeForFile(name, QMimeDatabase::MatchExtension));
+}
 
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)

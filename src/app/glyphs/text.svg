@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Marc Mironescu -->
+<!-- Plain text: a page with lines of writing cut out of it. -->
+<path fill-rule="evenodd" d="M6 2h12A1.5 1.5 0 0 1 19.5 3.5v17A1.5 1.5 0 0 1 18 22H6a1.5 1.5 0 0 1-1.5-1.5v-17A1.5 1.5 0 0 1 6 2zM7 5.5v1.8h10V5.5zM7 9.3v1.8h10V9.3zM7 13.1v1.8h10v-1.8zM7 16.9v1.8h6.5v-1.8z"/>
+</svg>

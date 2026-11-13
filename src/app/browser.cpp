@@ -37,6 +37,8 @@ QString viewToName(Browser::View view)
         return QStringLiteral("grid");
     case Browser::Columns:
         return QStringLiteral("columns");
+    case Browser::Graph:
+        return QStringLiteral("graph");
     case Browser::List:
         break;
     }
@@ -49,6 +51,8 @@ Browser::View viewFromName(const QString &name)
         return Browser::Grid;
     if (name == QLatin1String("columns"))
         return Browser::Columns;
+    if (name == QLatin1String("graph"))
+        return Browser::Graph;
     return Browser::List;
 }
 
@@ -173,6 +177,23 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
         followFocus();
     });
 
+    // The graph view's graph is built while it is shown, of the folder shown.
+    m_graph = std::make_unique<Riley::GraphBuilder>();
+    connect(m_graph.get(), &Riley::GraphBuilder::built, this, [this] {
+        const int node = m_graph->indexOf(m_graphPath);
+        m_graphHover = -1;
+        setGraphNode(node >= 0 ? node : (m_graph->count() > 0 ? 0 : -1));
+        emit graphNodeChanged();
+    });
+    connect(this, &Browser::folderChanged, this, [this] {
+        if (m_view == Graph)
+            startGraph();
+    });
+    connect(model, &FolderModel::showHiddenChanged, this, [this] {
+        if (m_view == Graph)
+            startGraph();
+    });
+
     addActions();
     addPreferences();
     m_model->setFoldersFirst(m_prefs->isOn(QStringLiteral("foldersFirst")));
@@ -251,9 +272,19 @@ void Browser::setView(View view)
         closeColumnsAfter(0);
         setActiveColumn(0);
     }
+    // The graph is built while its view is shown, and let go when it goes.
+    if (m_view == Graph) {
+        m_graph->clear();
+        m_graphPath.clear();
+        m_graphNode = -1;
+        m_graphHover = -1;
+        emit graphNodeChanged();
+    }
     m_view = view;
     m_settings->setValue(viewKey, viewToName(view));
     m_settings->sync();
+    if (m_view == Graph)
+        startGraph();
     emit viewChanged();
 }
 
@@ -510,6 +541,9 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
         return true;
     }
     if (m_sidebarFocus && sidebarKey(key, mods))
+        return true;
+    // The graph view moves through the graph with the arrows, and Return and Escape are its own.
+    if (m_view == Graph && mods == Qt::NoModifier && graphKey(key))
         return true;
 
     const bool finding = !m_findText.isEmpty() && m_findTimer.isValid()

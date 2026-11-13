@@ -13,6 +13,7 @@
 #include "drives.h"
 #include "filesearch.h"
 #include "foldermodel.h"
+#include "graphbuilder.h"
 #include "networkplaces.h"
 #include "panewidths.h"
 #include "pinnedfolders.h"
@@ -62,6 +63,16 @@ class Browser : public QObject
     Q_PROPERTY(int activeColumn READ activeColumn NOTIFY activeColumnChanged)
     Q_PROPERTY(FileOps *ops READ ops CONSTANT)
 
+    // The graph view (Ctrl+4): the folder shown and everything below it, built off the UI thread
+    // while the view is shown. graphNode is the node the keys are on (0, the folder itself, when
+    // a graph is built; -1 before), graphHover the one under the mouse (-1 for none), and
+    // graphLabel what is said about the hovered node, or else the selected one, "a · 1 file".
+    Q_PROPERTY(Riley::GraphBuilder *graph READ graph CONSTANT)
+    Q_PROPERTY(int graphNode READ graphNode NOTIFY graphNodeChanged)
+    Q_PROPERTY(int graphHover READ graphHover NOTIFY graphNodeChanged)
+    Q_PROPERTY(int graphLabelNode READ graphLabelNode NOTIFY graphNodeChanged)
+    Q_PROPERTY(QString graphLabel READ graphLabel NOTIFY graphNodeChanged)
+
     // The sidebar: places, then pinned folders. The keyboard is in it or in the files (Tab).
     // Its cursor counts the places first, then the pinned folders after them.
     Q_PROPERTY(Riley::PlacesModel *places READ places CONSTANT)
@@ -79,7 +90,8 @@ class Browser : public QObject
     // The servers connected through GVfs, after the drives (Connect to Server in the File menu).
     Q_PROPERTY(Riley::NetworkModel *network READ network CONSTANT)
     Q_PROPERTY(int markedNetwork READ markedNetwork NOTIFY sidebarChanged)
-    // The Recent row, between the pinned folders and the drives: the files used lately.
+    // The Recent row (shown among the places, before the Trash; in the keys' order after the
+    // pinned folders): the files used lately.
     Q_PROPERTY(bool markedRecent READ markedRecent NOTIFY sidebarChanged)
 
     // A place that is not a folder, shown in the folder's place: "trash" (everything in every
@@ -141,7 +153,7 @@ class Browser : public QObject
     Q_PROPERTY(QString searchHint READ searchHint NOTIFY searchModeChanged)
 
 public:
-    enum View { List, Grid, Columns };
+    enum View { List, Grid, Columns, Graph };
     Q_ENUM(View)
 
     // Reads and keeps its choices in `settingsFile` (an INI file), or when it is empty in
@@ -255,6 +267,12 @@ public:
     // Image source that shows it, or empty. `revision` is iconsRevision, for the binding.
     QString customIcon(const QString &path) const;
     Q_INVOKABLE QString customIconSource(const QString &path, int revision = 0) const;
+    // What a file holds, by its name, for its icon ("folder" for a folder); the rows outside the
+    // folder (search results, the trash, the recent files) use it.
+    Q_INVOKABLE QString categoryOf(const QString &name, bool isDir) const
+    {
+        return Riley::FolderModel::categoryOfName(name, isDir);
+    }
     // Change Icon: the chooser of theme icons (or an image file's path, typed) for `path`.
     void changeIcon(const QString &path);
     // Reset Icon: `path` gets its usual icon again.
@@ -316,8 +334,24 @@ public:
 
     View view() const { return m_view; }
     void setView(View view);
-    // "list", "grid" or "columns": also the objectName of the item that shows the view.
+    // "list", "grid", "columns" or "graph": also the objectName of the item that shows the view.
     QString viewName() const;
+
+    // The graph view (browsergraph.cpp).
+    Riley::GraphBuilder *graph() const { return m_graph.get(); }
+    int graphNode() const { return m_graphNode; }
+    int graphHover() const { return m_graphHover; }
+    int graphLabelNode() const { return m_graphHover >= 0 ? m_graphHover : m_graphNode; }
+    QString graphLabel() const;
+    // The mouse over a node of the graph (-1: over none), a click on one (the keys go there) and
+    // a double-click (it opens, as Return does).
+    Q_INVOKABLE void hoverGraphNode(int node);
+    Q_INVOKABLE void clickGraphNode(int node);
+    Q_INVOKABLE void openGraphNode(int node);
+    // Whether the graph can be drawn in `window` (a QQuickWindow): its scene is drawn through a
+    // 3D graphics API, not in software. RILEY_FILES_NO_3D set in the environment says no, so
+    // the view's other face can be seen and tested.
+    Q_INVOKABLE bool graphCanDraw(QObject *window) const;
 
     // Folders open in place in the list view. Off by default; turning it off closes them.
     bool tree() const { return m_tree; }
@@ -396,6 +430,7 @@ signals:
     void placeChanged();
     void placeRowChanged();
     void connectShownChanged();
+    void graphNodeChanged();
 
     // Asks for what the window, not the browser, does: another window on `folder`, and closing
     // this one.
@@ -417,6 +452,9 @@ private:
     bool listKey(int key, Qt::KeyboardModifiers mods);
     bool gridKey(int key);
     bool columnsKey(int key);
+    bool graphKey(int key);
+    void startGraph();
+    void setGraphNode(int node);
     bool columnsRight();
     bool columnsLeft();
     void previewUnderCursor();
@@ -511,6 +549,11 @@ private:
 
     QList<FolderColumn *> m_columns; // the first one shows m_model
     int m_activeColumn = 0;
+
+    std::unique_ptr<Riley::GraphBuilder> m_graph;
+    int m_graphNode = -1;
+    int m_graphHover = -1;
+    QString m_graphPath; // the path the graph's keys are on, kept when the graph is built again
 
     QString m_findText;
     QElapsedTimer m_findTimer;

@@ -35,6 +35,10 @@ public:
     UiHarness();
     ~UiHarness();
 
+    // The windows are drawn in software unless this is called first, before any harness is made:
+    // then they are drawn with OpenGL (the test's own platform must give it; see glplatform.cpp).
+    static void drawWithOpenGL();
+
     UiHarness(const UiHarness &) = delete;
     UiHarness &operator=(const UiHarness &) = delete;
 

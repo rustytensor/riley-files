@@ -12,6 +12,7 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QList>
+#include <QMimeType>
 #include <QMutex>
 #include <QSet>
 #include <QString>
@@ -85,6 +86,12 @@ public:
 
     explicit FolderModel(QObject *parent = nullptr);
     ~FolderModel() override;
+
+    // What a file holds, by its MIME type, as the "category" role gives it: image, audio,
+    // video, document, archive, code, text, or file for anything else.
+    static QString categoryOf(const QMimeType &mime);
+    // The same for a file name (by its extension), or "folder".
+    static QString categoryOfName(const QString &name, bool isDir);
 
     // QAbstractItemModel
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;

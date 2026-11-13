@@ -246,6 +246,10 @@
         <translation>Colonnes</translation>
     </message>
     <message>
+        <source>Graph</source>
+        <translation>Graphe</translation>
+    </message>
+    <message>
         <source>Tree</source>
         <translation>Arborescence</translation>
     </message>
@@ -1456,6 +1460,28 @@
     <message>
         <source>ripgrep (rg) could not be started.</source>
         <translation>ripgrep (rg) n’a pas pu être lancé.</translation>
+    </message>
+</context>
+<context>
+    <name>GraphView</name>
+    <message>
+        <source>The graph needs 3D graphics.</source>
+        <translation>Le graphe a besoin de graphismes 3D.</translation>
+    </message>
+</context>
+<context>
+    <name>Riley::GraphBuilder</name>
+    <message>
+        <source>Showing folders only (%1 files).</source>
+        <translation>Seuls les dossiers sont affichés (%1 fichiers).</translation>
+    </message>
+    <message>
+        <source>%1 · 1 file</source>
+        <translation>%1 · 1 fichier</translation>
+    </message>
+    <message>
+        <source>%1 · %2 files</source>
+        <translation>%1 · %2 fichiers</translation>
     </message>
 </context>
 <context>

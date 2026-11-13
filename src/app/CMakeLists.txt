@@ -10,9 +10,11 @@
 qt_add_library(riley-ui SHARED
     actions.h actions.cpp
     browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
-    browserplaces.cpp browserversions.cpp
+    browserplaces.cpp browserversions.cpp browsergraph.cpp
+    graphscene.h graphscene.cpp
     chooser.h chooser.cpp
     iconprovider.h iconprovider.cpp
+    fileglyphs.h fileglyphs.cpp
     panewidths.h panewidths.cpp
     preferences.h preferences.cpp
     fileops.h fileops.cpp
@@ -63,6 +65,8 @@ set(rf_qml_files
     qml/PlaceRow.qml
     qml/VersionsView.qml
     qml/ConnectDialog.qml
+    qml/GraphView.qml
+    qml/GraphScene.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.
@@ -86,8 +90,8 @@ qt_add_qml_module(riley-ui
 target_include_directories(riley-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(riley-ui
-    PUBLIC riley-core riley-thumbs Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE riley_warnings)
+    PUBLIC riley-core riley-thumbs riley-graph Qt6::Gui Qt6::Qml Qt6::Quick
+    PRIVATE Qt6::Quick3D riley_warnings)
 
 set_target_properties(riley-ui PROPERTIES
     VERSION ${PROJECT_VERSION}
@@ -98,11 +102,17 @@ set_target_properties(riley-ui PROPERTIES
 # first. `cmake --build build --target update_translations` brings the catalogs up to date with
 # the sources.
 qt_add_translations(
-    TARGETS riley-ui riley-core riley-thumbs
+    TARGETS riley-ui riley-core riley-thumbs riley-graph
     TS_FILE_DIR ${PROJECT_SOURCE_DIR}/i18n
     TS_FILE_BASE riley-files
     LUPDATE_OPTIONS -locations none
     QM_FILES_OUTPUT_VARIABLE rf_qm_files)
+# The file icons: nine SVG drawings, coloured and sized by FileGlyphs.
+qt_add_resources(riley-ui riley_glyphs
+    PREFIX /glyphs
+    BASE glyphs
+    FILES glyphs/folder.svg glyphs/image.svg glyphs/audio.svg glyphs/video.svg glyphs/text.svg
+          glyphs/code.svg glyphs/document.svg glyphs/archive.svg glyphs/other.svg)
 qt_add_resources(riley-ui riley_translations
     PREFIX /i18n
     BASE ${CMAKE_CURRENT_BINARY_DIR}

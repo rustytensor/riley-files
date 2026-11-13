@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Marc Mironescu -->
+<!-- A document: the outline of a page with its corner folded down. -->
+<path fill-rule="evenodd" d="M5.5 2H14l5.5 5.5v13A1.5 1.5 0 0 1 18 22H5.5A1.5 1.5 0 0 1 4 20.5v-17A1.5 1.5 0 0 1 5.5 2zM6 4v16h11.5V9H12.5V4z"/>
+<path fill-opacity="0.7" d="M14 2.8V7.5h4.7z"/>
+</svg>

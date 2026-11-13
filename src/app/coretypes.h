@@ -6,6 +6,7 @@
 #include "drives.h"
 #include "filesearch.h"
 #include "foldermodel.h"
+#include "graphbuilder.h"
 #include "networkplaces.h"
 #include "pinnedfolders.h"
 #include "places.h"
@@ -86,4 +87,12 @@ struct VersionModelForeign
     QML_FOREIGN(Riley::VersionModel)
     QML_NAMED_ELEMENT(VersionModel)
     QML_UNCREATABLE("The previous versions are made by the program.")
+};
+
+struct GraphBuilderForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::GraphBuilder)
+    QML_NAMED_ELEMENT(GraphBuilder)
+    QML_UNCREATABLE("The graph is built by the program.")
 };

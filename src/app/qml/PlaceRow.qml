@@ -44,7 +44,7 @@ Rectangle {
         id: icon
         x: Theme.spacing * 1.5
         anchors.verticalCenter: parent.verticalCenter
-        category: row.isFolder ? "folder" : "file"
+        category: row.browser.categoryOf(row.title, row.isFolder)
     }
 
     Text {

@@ -5,8 +5,8 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// Where a folder's files are shown, in the view the browser says. The grid and the columns
-// are made only while they are shown.
+// Where a folder's files are shown, in the view the browser says. The grid, the columns and the
+// graph are made only while they are shown.
 Rectangle {
     id: area
 
@@ -35,6 +35,15 @@ Rectangle {
         visible: !area.browser.searchShown && area.browser.place.length === 0
         sourceComponent: Component {
             ColumnsView { browser: area.browser }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: area.browser.view === Browser.Graph
+        visible: !area.browser.searchShown && area.browser.place.length === 0
+        sourceComponent: Component {
+            GraphView { browser: area.browser }
         }
     }
 

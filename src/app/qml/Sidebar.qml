@@ -5,9 +5,9 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// The column on the left: the places (home, the user folders, the trash), the pinned folders,
-// shared with GTK file dialogs, the recent files, the drives the person mounted, each with an
-// eject mark, and the servers connected (Connect to Server). The
+// The column on the left: the places (home, the user folders, the recent files, the trash), the
+// pinned folders, shared with GTK file dialogs (or a hint when there are none), the drives the
+// person mounted, each with an eject mark, and the servers connected (Connect to Server). The
 // place shown is marked; with the keys in the sidebar (Tab), its cursor shows too. A section
 // with nothing in it is not shown.
 Rectangle {
@@ -124,6 +124,26 @@ Rectangle {
                     first: 0
                     markedRow: sidebar.browser.markedPlace
                 }
+
+                // The files used lately belong with the places: one row, just before the Trash.
+                // (The keys reach it after the pinned folders, as before.) Each place has an
+                // icon of its own, so the Trash is a section of its own, and the row is its head.
+                section.property: "icon"
+                section.delegate: Loader {
+                    required property string section
+
+                    width: ListView.view ? ListView.view.width : 0
+                    active: section === "trash"
+                    sourceComponent: SidebarRow {
+                        objectName: "recentPlace"
+                        index: 0
+                        name: qsTr("Recent")
+                        path: ""
+                        icon: "recent"
+                        first: sidebar.browser.places.count + sidebar.browser.pinned.count
+                        markedRow: sidebar.browser.markedRecent ? 0 : -1
+                    }
+                }
             }
 
             Heading { text: qsTr("Pinned") }
@@ -153,20 +173,6 @@ Rectangle {
                 wrapMode: Text.Wrap
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall
-            }
-
-            // The files used lately: one row, after the pinned folders in the cursor too.
-            SidebarRow {
-                id: recentRow
-                objectName: "recentPlace"
-                x: Theme.spacing / 2
-                width: parent.width - Theme.spacing
-                index: 0
-                name: qsTr("Recent")
-                path: ""
-                icon: "recent"
-                first: sidebar.browser.places.count + sidebar.browser.pinned.count
-                markedRow: sidebar.browser.markedRecent ? 0 : -1
             }
 
             Heading {

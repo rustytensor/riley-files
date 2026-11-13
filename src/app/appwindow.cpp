@@ -5,6 +5,7 @@
 
 #include "browser.h"
 #include "thumbnailer.h"
+#include "fileglyphs.h"
 #include "iconprovider.h"
 #include "thumbnailprovider.h"
 #include "translations.h"
@@ -23,6 +24,7 @@ AppWindow::AppWindow(const QString &settingsFile)
     // The engine owns the provider.
     m_engine->addImageProvider(ThumbnailProvider::id(), new ThumbnailProvider(m_thumbnailer));
     m_engine->addImageProvider(IconProvider::id(), new IconProvider());
+    m_engine->addImageProvider(GlyphProvider::id(), new GlyphProvider());
     IconIndex::setThemeName(QIcon::themeName());
 }
 

@@ -160,6 +160,16 @@ QtObject {
         return categoryColors[category] ?? categoryColors.file
     }
 
+    // The graph view: night space with stars, whatever the variant, the nodes in the icons'
+    // colours, thin lines between them, and a soft halo round the node the keys are on.
+    readonly property color graphSpace: light ? mix(brightForeground, blue, 0.12) : darkerBackground
+    readonly property color graphStar: light ? lighterBackground : brightForeground
+    readonly property color graphEdge: mix(graphSpace, light ? lighterBackground : muted, 0.55)
+    readonly property color graphMark: graphStar
+    readonly property color graphLight: light ? lighterBackground : brightForeground
+    readonly property color graphText: light ? lighterBackground : foreground
+    readonly property color graphTextMuted: light ? darkerBackground : darkForeground
+
     // ---- Sizes, in logical pixels (Qt scales them for the screen).
     // The spacing scale: every gap and margin is one of these or a step of `spacing`.
     readonly property int spaceTiny: 2

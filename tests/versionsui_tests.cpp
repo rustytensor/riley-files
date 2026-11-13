@@ -21,6 +21,7 @@
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtQuickTest/quicktest.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -156,9 +157,12 @@ QQuickItem *menuTitle(UiHarness &ui, const QString &title)
     return nullptr;
 }
 
+// Clicks the middle of item the way a person would: only once the window has laid out what it
+// shows. An item that has just appeared can still sit where it was before its column placed it,
+// and a click there lands on something else.
 bool click(UiHarness &ui, QQuickItem *item, Qt::MouseButton button = Qt::LeftButton)
 {
-    if (!item || !item->isVisible())
+    if (!item || !item->isVisible() || !QQuickTest::qWaitForPolish(ui.window()))
         return false;
     QTest::mouseClick(ui.window(), button, Qt::NoModifier,
                       item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());

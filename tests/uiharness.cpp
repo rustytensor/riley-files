@@ -23,6 +23,7 @@ QMutex warningsLock;
 QStringList warnings;
 QtMessageHandler previousHandler = nullptr;
 int harnesses = 0;
+bool openGL = false;
 
 bool isQmlCategory(const char *category)
 {
@@ -72,8 +73,9 @@ UiHarness::UiHarness()
     // Drawn in software, so the tests need no GPU or display. Set once: the choice holds for
     // the whole run.
     static const bool software = [] {
-        QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
-        return true;
+        if (!openGL)
+            QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
+        return !openGL;
     }();
     Q_UNUSED(software);
     if (harnesses++ == 0) {
@@ -91,6 +93,12 @@ UiHarness::UiHarness()
     qputenv("XDG_CONFIG_HOME", m_scratch.filePath(QStringLiteral("config")).toUtf8());
     // Custom icons, the trash and the user's applications live in this test's own data folder.
     qputenv("XDG_DATA_HOME", m_scratch.filePath(QStringLiteral("data")).toUtf8());
+}
+
+void UiHarness::drawWithOpenGL()
+{
+    openGL = true;
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 }
 
 UiHarness::~UiHarness()

@@ -15,12 +15,15 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QMap>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QRegularExpression>
 #include <QTest>
 #include <QUrl>
 #include <QXmlStreamReader>
+
+#include <algorithm>
 
 using namespace Qt::StringLiterals;
 
@@ -181,6 +184,58 @@ Read readBookmark(const QByteArray &xbel, const QString &path)
     return read;
 }
 
+
+// The sidebar as a person reads it, top to bottom: each section heading shown ("Places",
+// "Pinned", "Drives", "Network") with the rows and the hint shown under it, in order.
+struct SidebarLine
+{
+    qreal y = 0;
+    QString heading;
+    QString text;
+};
+
+void collectSidebar(QQuickItem *item, QList<SidebarLine> &lines)
+{
+    if (!item || !item->isVisible() || item->opacity() <= 0.0)
+        return;
+    static const QStringList headings = {u"Places"_s, u"Pinned"_s, u"Drives"_s, u"Network"_s};
+    const qreal y = item->mapToScene(QPointF(0, 0)).y();
+    // A sidebar row: it has a name and a place in the sidebar's cursor.
+    if (item->property("first").isValid() && item->property("markedRow").isValid()) {
+        if (item->height() > 0)
+            lines.append({y, QString(), item->property("name").toString()});
+        return;
+    }
+    if (item->inherits("QQuickText")) {
+        const QString text = item->property("text").toString();
+        if (headings.contains(text))
+            lines.append({y, text, QString()});
+        else if (!text.isEmpty())
+            lines.append({y, QString(), u"hint: "_s + text});
+        return;
+    }
+    const auto children = item->childItems();
+    for (QQuickItem *child : children)
+        collectSidebar(child, lines);
+}
+
+QMap<QString, QStringList> sidebarSections(UiHarness &ui)
+{
+    QList<SidebarLine> lines;
+    collectSidebar(ui.view(u"sidebar"_s), lines);
+    std::stable_sort(lines.begin(), lines.end(), [](const SidebarLine &a, const SidebarLine &b) { return a.y < b.y; });
+    QMap<QString, QStringList> sections;
+    QString section;
+    for (const SidebarLine &line : std::as_const(lines)) {
+        if (!line.heading.isEmpty()) {
+            section = line.heading;
+            sections[section];
+        } else {
+            sections[section].append(line.text);
+        }
+    }
+    return sections;
+}
 } // namespace
 
 class PlacesUiTests : public QObject
@@ -192,6 +247,7 @@ private slots:
     void recentFilesFromXbel();
     void networkPlacesConnect();
     void uiTrashAndDrivesInSidebar();
+    void uiSidebarSections();
 };
 
 void PlacesUiTests::trashViewListsAndRestores()
@@ -513,6 +569,72 @@ void PlacesUiTests::uiTrashAndDrivesInSidebar()
     QVERIFY(QFileInfo::exists(ui.root() + u"/b.txt"_s));
 
     QCOMPARE(ui.qmlWarnings(), QStringList());
+}
+
+void PlacesUiTests::uiSidebarSections()
+{
+    UiHarness ui;
+    const QDir scratch(ui.scratch());
+    const QString root = ui.root();
+    // The sidebarListsPlaces fixture: a home of its own; user-dirs.dirs names Documents and
+    // Pictures (both made) and Music (not made). One file system, so no drive shows.
+    const QString home = scratch.filePath(u"home"_s);
+    QVERIFY(QDir().mkpath(home + u"/Documents"_s));
+    QVERIFY(QDir().mkpath(home + u"/Pictures"_s));
+    QVERIFY(writeFile(scratch.filePath(u"config/user-dirs.dirs"_s),
+                      "XDG_DOCUMENTS_DIR=\"$HOME/Documents\"\nXDG_PICTURES_DIR=\"$HOME/Pictures\"\n"
+                      "XDG_MUSIC_DIR=\"$HOME/Music\"\n"));
+    QVERIFY(writeFile(scratch.filePath(u"mountinfo"_s),
+                      "22 1 253:1 / / rw,relatime shared:1 - xfs /dev/mapper/root rw\n"));
+    const QByteArray oldHome = qgetenv("HOME");
+    const QByteArray oldMounts = qgetenv("RILEY_MOUNTINFO");
+    qputenv("HOME", home.toUtf8());
+    qputenv("RILEY_MOUNTINFO", QFile::encodeName(scratch.filePath(u"mountinfo"_s)));
+    // Plus a recently-used.xbel with one file in it.
+    const QString used = root + u"/used.txt"_s;
+    QVERIFY(writeFile(used, "u"));
+    QVERIFY(writeFile(scratch.filePath(u"data/recently-used.xbel"_s),
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                      "<xbel version=\"1.0\"\n"
+                      "      xmlns:bookmark=\"http://www.freedesktop.org/standards/desktop-bookmarks\"\n"
+                      "      xmlns:mime=\"http://www.freedesktop.org/standards/shared-mime-info\"\n"
+                      ">\n"
+                          + bookmark(used, QDateTime::currentDateTimeUtc().addSecs(-600)) + "</xbel>\n"));
+
+    QVERIFY(ui.start({root}));
+    const QStringList places{u"Home"_s, u"Documents"_s, u"Pictures"_s, u"Recent"_s, u"Trash"_s};
+    const QString hint = u"hint: Ctrl+D pins the folder you are in."_s;
+    // Recent is with the places, just before the Trash; Pinned holds only its hint.
+    QTRY_COMPARE(sidebarSections(ui).value(u"Places"_s), places);
+    QCOMPARE(sidebarSections(ui).value(u"Pinned"_s), QStringList{hint});
+    QVERIFY(sidebarSections(ui).contains(u"Pinned"_s));
+
+    // A pinned folder: Pinned holds it alone, and the places stay as they were.
+    ui.press(Qt::Key_D, Qt::ControlModifier);
+    QTRY_COMPARE(sidebarSections(ui).value(u"Pinned"_s), QStringList{u"root"_s});
+    QCOMPARE(sidebarSections(ui).value(u"Places"_s), places);
+
+    // The Recent row among the places opens the recent files, and is marked.
+    QVERIFY(clickItem(ui, ui.view(u"recentPlace"_s)));
+    QTRY_VERIFY(shown(ui, u"recentView"_s));
+    QTRY_COMPARE(UiHarness::shownNames(ui.view(u"recentFiles"_s)), QStringList{u"used.txt"_s});
+    QVERIFY(ui.browser().markedRecent());
+    QTRY_VERIFY(ui.view(u"recentPlace"_s)->property("marked").toBool());
+    QCOMPARE(sidebarSections(ui).value(u"Places"_s), places);
+
+    // Unpinned again: the hint is back.
+    ui.press(Qt::Key_Left, Qt::AltModifier);
+    QTRY_VERIFY(shown(ui, u"list"_s));
+    ui.press(Qt::Key_D, Qt::ControlModifier);
+    QTRY_COMPARE(sidebarSections(ui).value(u"Pinned"_s), QStringList{hint});
+
+    QCOMPARE(ui.qmlWarnings(), QStringList());
+    ui.stop();
+    qputenv("HOME", oldHome);
+    if (oldMounts.isNull())
+        qunsetenv("RILEY_MOUNTINFO");
+    else
+        qputenv("RILEY_MOUNTINFO", oldMounts);
 }
 
 QTEST_MAIN(PlacesUiTests)

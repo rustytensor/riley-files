@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Marc Mironescu -->
+<!-- Any other file: a diamond with a dot in a ring. -->
+<path fill-rule="evenodd" d="M12 3l9 9-9 9-9-9zM12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z"/>
+<circle cx="12" cy="12" r="1.6"/>
+</svg>

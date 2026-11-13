@@ -15,7 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(GNUInstallDirs)
 include(CTest)   # defines BUILD_TESTING (on by default) and enables ctest
 
-set(rf_qt_components Core Gui Qml Quick LinguistTools)
+set(rf_qt_components Core Gui Qml Quick Quick3D LinguistTools)
 if(BUILD_TESTING)
     list(APPEND rf_qt_components Test)
 endif()
@@ -33,6 +33,7 @@ target_compile_options(riley_warnings INTERFACE -Wall -Wextra)
 
 add_subdirectory(src/core)
 add_subdirectory(src/thumbs)
+add_subdirectory(src/graph)
 add_subdirectory(src/app)
 
 if(BUILD_TESTING)

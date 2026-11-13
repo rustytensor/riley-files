@@ -139,6 +139,7 @@ void Browser::addActions()
     a.add({u"view-grid"_s, tr("Grid"), key(Qt::Key_1, ctrl), {}, view(Grid), {}, isView(Grid)});
     a.add({u"view-list"_s, tr("List"), key(Qt::Key_2, ctrl), {}, view(List), {}, isView(List)});
     a.add({u"view-columns"_s, tr("Columns"), key(Qt::Key_3, ctrl), {}, view(Columns), {}, isView(Columns)});
+    a.add({u"view-graph"_s, tr("Graph"), key(Qt::Key_4, ctrl), {}, view(Graph), {}, isView(Graph)});
     a.add({u"tree"_s, tr("Tree"), key(Qt::Key_T), {}, [this] { setTree(!m_tree); },
            [this] { return m_view == List; }, [this] { return m_tree; }});
     a.add({u"hidden"_s, tr("Hidden Files"), key(Qt::Key_H, ctrl), {}, [this] { setShowHidden(!showHidden()); },
@@ -211,7 +212,7 @@ void Browser::addActions()
          {item(u"undo"), item(u"redo"), sep, item(u"cut"), item(u"copy"), item(u"paste"), sep,
           item(u"select-all"), sep, item(u"find"), item(u"find-contents"), sep, item(u"preferences")}},
         {tr("View"),
-         {item(u"view-grid"), item(u"view-list"), item(u"view-columns"), sep, item(u"tree"), item(u"hidden"),
+         {item(u"view-grid"), item(u"view-list"), item(u"view-columns"), item(u"view-graph"), sep, item(u"tree"), item(u"hidden"),
           sep, item(u"sidebar"), item(u"details"), sep, sortMenu, panesMenu, sep, item(u"reload")}},
         {tr("Go"),
          {item(u"back"), item(u"forward"), item(u"up"), item(u"home"), sep, item(u"recent"), item(u"trash-place"),
