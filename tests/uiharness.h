@@ -11,6 +11,9 @@
 
 class AppWindow;
 class Browser;
+namespace Riley {
+class Thumbnailer;
+}
 class QQuickItem;
 class QQuickWindow;
 
@@ -54,6 +57,9 @@ public:
 
     QQuickWindow *window() const;
     Browser &browser() const;
+    // What makes the window's thumbnails; they go to "<scratch>/cache/thumbnails". The window's
+    // config folder (XDG_CONFIG_HOME: pinned folders, user-dirs.dirs) is "<scratch>/config".
+    Riley::Thumbnailer &thumbnailer() const;
 
     // The item with this objectName in the window, or null.
     QQuickItem *item(const QString &objectName) const;

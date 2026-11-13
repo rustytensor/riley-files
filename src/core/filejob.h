@@ -33,6 +33,7 @@ struct JobStep
         Moved,   // `from` now lives at `to` (a move or a rename); undo moves it back
         Trashed, // `from` went to the trash and lives at `to` (in Trash/files); undo restores it
         Restored, // `from` (in Trash/files) was put back at `to`; undo sends it to the trash again
+        FolderRemoved, // the empty folder `from` was removed (a merging move emptied it); undo makes it again
     };
     Kind kind;
     QString from;
@@ -63,6 +64,7 @@ class RILEYCORE_EXPORT FileJob : public QObject
     Q_PROPERTY(qint64 bytesTotal READ bytesTotal NOTIFY progressChanged)
     Q_PROPERTY(QString clashSource READ clashSource NOTIFY clashAsked)
     Q_PROPERTY(QString clashTarget READ clashTarget NOTIFY clashAsked)
+    Q_PROPERTY(bool clashCanMerge READ clashCanMerge NOTIFY clashAsked)
     Q_PROPERTY(int failureCount READ failureCount NOTIFY finished)
 
 public:
@@ -83,6 +85,7 @@ public:
         Replace,  // the old one goes to the trash, then the new one takes its name
         KeepBoth, // the new one gets a free name: "a (2).txt"
         Skip,     // the old one stays, the new one is not copied or moved
+        Merge,    // both are folders: the new one's items go into the old one, each clash asked again
     };
     Q_ENUM(ClashChoice)
 
@@ -103,6 +106,8 @@ public:
 
     QString clashSource() const;
     QString clashTarget() const;
+    // Whether the clash being asked about is a folder meeting a folder, so Merge may be answered.
+    bool clashCanMerge() const;
 
     QList<JobFailure> failures() const;
     int failureCount() const;
@@ -113,7 +118,8 @@ public:
     bool stopRequested() const { return m_stop.load(); }
 
     // Answers the clash being asked about. With forAll the same answer goes to every later
-    // clash of this job without asking.
+    // clash of this job without asking. Merge is ignored unless clashCanMerge(); a Merge given
+    // for all applies to later folder clashes only, and a file clash is still asked.
     Q_INVOKABLE void answerClash(Riley::FileJob::ClashChoice choice, bool forAll = false);
 
 signals:
@@ -130,8 +136,9 @@ protected:
     virtual void run() = 0;
 
     // Asks about a clash and waits for the answer; nothing when the job was stopped meanwhile.
-    // A "for all" answer given before is returned without asking.
-    std::optional<ClashChoice> askClash(const QString &source, const QString &target);
+    // A "for all" answer given before is returned without asking. canMerge: both are folders,
+    // so Merge is a possible answer; otherwise Merge is never returned.
+    std::optional<ClashChoice> askClash(const QString &source, const QString &target, bool canMerge = false);
 
     void addFailure(const QString &path, const QString &message);
     void addStep(JobStep::Kind kind, const QString &from, const QString &to);
@@ -157,6 +164,7 @@ private:
     mutable QMutex m_mutex; // guards everything below
     QWaitCondition m_answered;
     QString m_clashSource, m_clashTarget;
+    bool m_clashCanMerge = false;
     std::optional<ClashChoice> m_answer;
     std::optional<ClashChoice> m_answerForAll;
     QList<JobFailure> m_failures;

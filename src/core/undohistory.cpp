@@ -95,6 +95,18 @@ bool check(const JobStep &step, Plan *plan, QString *why)
         plan->remove(step.to);
         plan->add(step.from);
         return true;
+    case JobStep::FolderRemoved:
+        if (plan->exists(step.from)) {
+            *why = QStringLiteral("There is already something named “%1” in “%2”")
+                       .arg(nameOf(step.from), nameOf(parentOf(step.from)));
+            return false;
+        }
+        if (!plan->isFolder(parentOf(step.from))) {
+            *why = QStringLiteral("The folder “%1” is not there any more").arg(nameOf(parentOf(step.from)));
+            return false;
+        }
+        plan->add(step.from);
+        return true;
     }
     return false;
 }
@@ -146,6 +158,12 @@ void UndoJob::run()
         case JobStep::Trashed:
             if (const std::optional<QString> back = Trash::restore(step.to, step.from, &why))
                 addStep(JobStep::Restored, step.to, *back);
+            break;
+        case JobStep::FolderRemoved:
+            if (QDir().mkdir(step.from))
+                addStep(JobStep::Created, QString(), step.from);
+            else
+                why = QStringLiteral("The folder “%1” cannot be made again").arg(nameOf(step.from));
             break;
         }
         if (!why.isEmpty()) {

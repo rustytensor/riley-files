@@ -471,7 +471,7 @@ void FileOps::stop()
 void FileOps::clashAsked(FileJob *job)
 {
     m_asking = job;
-    m_clashButton = KeepBothButton;
+    m_clashButton = job->clashCanMerge() ? MergeButton : KeepBothButton;
     m_clashForAll = false;
     emit clashChanged();
 }
@@ -499,7 +499,7 @@ QString FileOps::clashNew() const
 
 void FileOps::setClashButton(int button)
 {
-    button = std::clamp(button, int(SkipButton), int(ReplaceButton));
+    button = std::clamp(button, int(SkipButton), int(clashCanMerge() ? MergeButton : ReplaceButton));
     if (button == m_clashButton)
         return;
     m_clashButton = button;
@@ -514,6 +514,11 @@ void FileOps::setClashForAll(bool on)
     emit clashChanged();
 }
 
+bool FileOps::clashCanMerge() const
+{
+    return m_asking && m_asking->clashCanMerge();
+}
+
 bool FileOps::clashOffersForAll() const
 {
     const auto *transfer = qobject_cast<const Riley::TransferJob *>(m_asking.data());
@@ -526,7 +531,10 @@ void FileOps::answerClash(int button)
         return;
     if (button < 0)
         button = m_clashButton;
-    const FileJob::ClashChoice choice = button == ReplaceButton    ? FileJob::ClashChoice::Replace
+    if (button == MergeButton && !clashCanMerge())
+        return;
+    const FileJob::ClashChoice choice = button == MergeButton      ? FileJob::ClashChoice::Merge
+                                        : button == ReplaceButton  ? FileJob::ClashChoice::Replace
                                         : button == KeepBothButton ? FileJob::ClashChoice::KeepBoth
                                                                    : FileJob::ClashChoice::Skip;
     FileJob *job = m_asking;
@@ -571,6 +579,10 @@ bool FileOps::clashKey(int key, Qt::KeyboardModifiers mods)
         break;
     case Qt::Key_R:
         answerClash(ReplaceButton);
+        break;
+    case Qt::Key_M:
+        if (clashCanMerge())
+            answerClash(MergeButton);
         break;
     case Qt::Key_A:
         if (clashOffersForAll())

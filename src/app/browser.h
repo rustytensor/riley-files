@@ -3,10 +3,15 @@
 
 #pragma once
 
+#include "details.h"
 #include "fileops.h"
 #include "foldercolumn.h"
 #include "foldermodel.h"
+#include "pinnedfolders.h"
+#include "places.h"
+#include "preview.h"
 
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QList>
 #include <QObject>
@@ -43,6 +48,23 @@ class Browser : public QObject
     Q_PROPERTY(int activeColumn READ activeColumn NOTIFY activeColumnChanged)
     Q_PROPERTY(FileOps *ops READ ops CONSTANT)
 
+    // The sidebar: places, then pinned folders. The keyboard is in it or in the files (Tab).
+    // Its cursor counts the places first, then the pinned folders after them.
+    Q_PROPERTY(Riley::PlacesModel *places READ places CONSTANT)
+    Q_PROPERTY(Riley::PinnedModel *pinned READ pinned CONSTANT)
+    Q_PROPERTY(bool sidebarFocus READ sidebarFocus NOTIFY sidebarChanged)
+    Q_PROPERTY(int sidebarCursor READ sidebarCursor NOTIFY sidebarChanged)
+    // The place and the pinned folder that are the folder shown, or -1.
+    Q_PROPERTY(int markedPlace READ markedPlace NOTIFY sidebarChanged)
+    Q_PROPERTY(int markedPin READ markedPin NOTIFY sidebarChanged)
+    Q_PROPERTY(bool folderPinned READ folderPinned NOTIFY sidebarChanged)
+
+    // The details pane on the right (Ctrl+I), about the row under the cursor.
+    Q_PROPERTY(bool detailsShown READ detailsShown WRITE setDetailsShown NOTIFY detailsShownChanged)
+    Q_PROPERTY(FileDetails *details READ details CONSTANT)
+    // The preview overlay (Space).
+    Q_PROPERTY(Preview *preview READ preview CONSTANT)
+
 public:
     enum View { List, Grid, Columns };
     Q_ENUM(View)
@@ -57,6 +79,28 @@ public:
     Riley::FolderModel *model() const { return m_model.get(); }
     // Copy, paste, rename, trash, undo: what the file keys do.
     FileOps *ops() const { return m_ops.get(); }
+
+    Riley::PlacesModel *places() const { return m_places.get(); }
+    Riley::PinnedModel *pinned() const { return m_pinned.get(); }
+    bool sidebarFocus() const { return m_sidebarFocus; }
+    // Moves the keyboard into the sidebar (its cursor on the place shown, if any) or back.
+    Q_INVOKABLE void setSidebarFocus(bool on);
+    int sidebarCursor() const { return m_sidebarCursor; }
+    int markedPlace() const;
+    int markedPin() const;
+    bool folderPinned() const;
+    // Opens a sidebar row (places first, then pinned folders) and gives the keys back to the
+    // files.
+    Q_INVOKABLE void openSidebarRow(int row);
+    // Pins the folder shown, or unpins it when it is pinned (Ctrl+D).
+    Q_INVOKABLE void togglePin();
+
+    bool detailsShown() const { return m_detailsShown; }
+    void setDetailsShown(bool shown);
+    FileDetails *details() const { return m_details.get(); }
+    Preview *preview() const { return m_preview.get(); }
+    // The path the keys are on: the row under the active cursor, or else the folder shown.
+    QString focusPath() const;
 
     // The row the keys act on; -1 when the folder has no rows (yet).
     int cursor() const { return m_cursor; }
@@ -106,6 +150,9 @@ public:
     // Opens the folder under the cursor; for a file, does nothing yet.
     Q_INVOKABLE void activate(int row);
 
+    // The Image source of a row's thumbnail, or empty for a folder (folders keep their icon).
+    Q_INVOKABLE QString thumbnailSource(const QString &path, bool isDir, const QDateTime &modified) const;
+
     // One key press from the window. Returns true when it was used.
     Q_INVOKABLE bool handleKey(int key, int modifiers, const QString &text);
 
@@ -130,6 +177,8 @@ signals:
     void gridColumnsChanged();
     void columnsChanged();
     void activeColumnChanged();
+    void sidebarChanged();
+    void detailsShownChanged();
 
 private:
     struct Step
@@ -163,6 +212,12 @@ private:
     bool typeToFind(const QString &text);
     bool fileKey(int key, Qt::KeyboardModifiers mods);
     bool landAim();
+    bool sidebarKey(int key, Qt::KeyboardModifiers mods);
+    bool previewKey(int key, Qt::KeyboardModifiers mods);
+    void stepPreview(int by);
+    void setSidebarCursor(int row);
+    // Points the details and the preview at what the keys are on now.
+    void followFocus();
 
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<Riley::FolderModel> m_model;
@@ -188,4 +243,14 @@ private:
 
     QString m_findText;
     QElapsedTimer m_findTimer;
+
+    std::unique_ptr<Riley::PlacesModel> m_places;
+    std::unique_ptr<Riley::PinnedModel> m_pinned;
+    bool m_sidebarFocus = false;
+    int m_sidebarCursor = 0;
+
+    std::unique_ptr<FileDetails> m_details;
+    std::unique_ptr<Preview> m_preview;
+    bool m_detailsShown = false;
+    QString m_followed; // the path the details and preview were last pointed at
 };

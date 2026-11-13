@@ -37,3 +37,32 @@ target_link_libraries(fileui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME fileui_tests COMMAND fileui_tests)
 set_tests_properties(fileui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The sidebar's models on real files: the places (home, XDG user folders, trash) and the pinned
+# folders kept in the GTK 3 bookmarks file.
+add_executable(sidebar_tests sidebar_tests.cpp)
+target_link_libraries(sidebar_tests PRIVATE riley-core riley_warnings Qt6::Test)
+
+add_test(NAME sidebar_tests COMMAND sidebar_tests)
+set_tests_properties(sidebar_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Thumbnails on real files: the freedesktop cache, fail entries and installed thumbnailers.
+add_executable(thumbs_tests thumbs_tests.cpp)
+target_link_libraries(thumbs_tests PRIVATE riley-thumbs riley_warnings Qt6::Test)
+
+add_test(NAME thumbs_tests COMMAND thumbs_tests)
+set_tests_properties(thumbs_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Thumbnails in the window: the grid stays smooth while they are made.
+add_executable(thumbui_tests thumbui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(thumbui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME thumbui_tests COMMAND thumbui_tests)
+set_tests_properties(thumbui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The sidebar, the details pane and the preview in the window, driven with keys.
+add_executable(paneui_tests paneui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(paneui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME paneui_tests COMMAND paneui_tests)
+set_tests_properties(paneui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

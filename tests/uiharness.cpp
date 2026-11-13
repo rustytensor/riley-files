@@ -84,6 +84,11 @@ UiHarness::UiHarness()
         warnings.clear();
     }
     QDir(m_scratch.path()).mkpath(QStringLiteral("root"));
+    // Thumbnails of the fixtures go to this test's own cache, never the user's.
+    qputenv("XDG_CACHE_HOME", m_scratch.filePath(QStringLiteral("cache")).toUtf8());
+    // Pinned folders (the GTK bookmarks file) and user-dirs.dirs come from this test's own
+    // config folder, so no test reads or writes the user's.
+    qputenv("XDG_CONFIG_HOME", m_scratch.filePath(QStringLiteral("config")).toUtf8());
 }
 
 UiHarness::~UiHarness()
@@ -173,6 +178,11 @@ QQuickWindow *UiHarness::window() const
 Browser &UiHarness::browser() const
 {
     return m_app->browser();
+}
+
+Riley::Thumbnailer &UiHarness::thumbnailer() const
+{
+    return m_app->thumbnailer();
 }
 
 QQuickItem *UiHarness::item(const QString &objectName) const

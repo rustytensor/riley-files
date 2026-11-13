@@ -11,9 +11,11 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QList>
+#include <QMutex>
 #include <QSet>
 #include <QString>
 #include <QStringList>
+#include <QThread>
 #include <QThreadPool>
 #include <QTimer>
 #include <QVariantMap>
@@ -145,6 +147,9 @@ public:
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void clearSelection();
 
+    // Every thread a folder was read on. A test can check that the main thread is never among them.
+    QSet<Qt::HANDLE> listingThreads() const;
+
 signals:
     void pathChanged();
     void sortKeyChanged();
@@ -214,6 +219,9 @@ private:
     quint64 m_nextRequest = 0;
     // The generation still wanted, read by the workers to give up early.
     std::shared_ptr<std::atomic<quint64>> m_wanted;
+
+    mutable QMutex m_threadsLock;
+    QSet<Qt::HANDLE> m_listingThreads;
 
     QThreadPool m_pool;
     QFileSystemWatcher m_watcher;

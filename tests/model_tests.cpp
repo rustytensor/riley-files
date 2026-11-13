@@ -15,6 +15,7 @@
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <QTimer>
 
 #include <algorithm>
@@ -199,6 +200,9 @@ void ModelTests::modelListsOffTheMainThread()
     QTRY_COMPARE_WITH_TIMEOUT(model.rowCount(), Files, 10000);
     ticker.stop();
     QVERIFY2(longestGap <= 250, qPrintable(QStringLiteral("the main thread stalled %1 ms").arg(longestGap)));
+    // And the folder was never read on the main thread, however fast the disk happened to be.
+    QVERIFY(!model.listingThreads().isEmpty());
+    QVERIFY2(!model.listingThreads().contains(QThread::currentThreadId()), "a folder was read on the main thread");
 }
 
 void ModelTests::modelWatchesTheFolder()

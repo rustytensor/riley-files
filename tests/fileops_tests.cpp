@@ -42,6 +42,7 @@ private slots:
     void stopEndsACopyCleanly();
     void copyReportsWhatFailed();
     void progressIsReported();
+    void mergeFoldersAsksPerFile();
 };
 
 namespace {
@@ -190,6 +191,8 @@ void FileOpsTests::clashesAreAskedNeverOverwritten()
             QCOMPARE(namesIn(s.trashFiles()), QStringList{QStringLiteral("a.txt")});
             QCOMPARE(readFile(s.trashFiles() + QStringLiteral("/a.txt")), QByteArray("old"));
             QVERIFY(QFileInfo::exists(s.data + QStringLiteral("/Trash/info/a.txt.trashinfo")));
+            break;
+        case FileJob::ClashChoice::Merge: // files: never offered
             break;
         }
     }
@@ -601,6 +604,54 @@ void FileOpsTests::progressIsReported()
     QCOMPARE(reports.last().filesDone, qint64(5000));
     QCOMPARE(reports.last().bytesDone, totalBytes);
     QCOMPARE(namesIn(s.dst + QStringLiteral("/F")).size(), 5000);
+}
+
+// Photos/ {a.jpg "old", b.jpg} in the destination; Photos/ {a.jpg "new", c.jpg} copied beside it:
+// the folder clash offers Merge, Merge asks again about a.jpg, Keep both gives
+// [a (2).jpg "new", a.jpg "old", b.jpg, c.jpg]; one undo gives [a.jpg "old", b.jpg] again.
+void FileOpsTests::mergeFoldersAsksPerFile()
+{
+    Scratch s;
+    const QString photos = s.dst + QStringLiteral("/Photos");
+    const QString source = s.src + QStringLiteral("/Photos");
+    QVERIFY(QDir().mkpath(photos));
+    QVERIFY(QDir().mkpath(source));
+    QVERIFY(writeFile(photos + QStringLiteral("/a.jpg"), "old"));
+    QVERIFY(writeFile(photos + QStringLiteral("/b.jpg"), "b"));
+    QVERIFY(writeFile(source + QStringLiteral("/a.jpg"), "new"));
+    QVERIFY(writeFile(source + QStringLiteral("/c.jpg"), "c"));
+
+    JobQueue queue;
+    UndoHistory history(&queue);
+    auto *job = new CopyJob({source}, s.dst);
+    QStringList asked;
+    QList<bool> canMerge;
+    connect(job, &FileJob::clashAsked, this, [&](const QString &from, const QString &target) {
+        asked.append(from + QStringLiteral(" -> ") + target);
+        canMerge.append(job->clashCanMerge());
+        if (asked.size() == 1) {
+            job->answerClash(FileJob::ClashChoice::Merge);
+        } else {
+            job->answerClash(FileJob::ClashChoice::Merge); // not a folder clash: ignored, still asking
+            job->answerClash(FileJob::ClashChoice::KeepBoth);
+        }
+    });
+    QVERIFY(runJob(queue, job));
+    QCOMPARE(asked, (QStringList{source + QStringLiteral(" -> ") + photos,
+                                 source + QStringLiteral("/a.jpg -> ") + photos + QStringLiteral("/a.jpg")}));
+    QCOMPARE(canMerge, (QList<bool>{true, false}));
+    QCOMPARE(job->failureCount(), 0);
+    QCOMPARE(namesIn(photos), (QStringList{QStringLiteral("a (2).jpg"), QStringLiteral("a.jpg"),
+                                           QStringLiteral("b.jpg"), QStringLiteral("c.jpg")}));
+    QCOMPARE(readFile(photos + QStringLiteral("/a (2).jpg")), QByteArray("new"));
+    QCOMPARE(readFile(photos + QStringLiteral("/a.jpg")), QByteArray("old"));
+    QCOMPARE(namesIn(s.dst), QStringList{QStringLiteral("Photos")});
+    QCOMPARE(job->targets(), QStringList{photos});
+
+    QVERIFY(runUndo(history));
+    QCOMPARE(namesIn(photos), (QStringList{QStringLiteral("a.jpg"), QStringLiteral("b.jpg")}));
+    QCOMPARE(readFile(photos + QStringLiteral("/a.jpg")), QByteArray("old"));
+    QCOMPARE(namesIn(source), (QStringList{QStringLiteral("a.jpg"), QStringLiteral("c.jpg")}));
 }
 
 QTEST_GUILESS_MAIN(FileOpsTests)

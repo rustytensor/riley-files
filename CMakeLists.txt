@@ -30,6 +30,7 @@ add_library(riley_warnings INTERFACE)
 target_compile_options(riley_warnings INTERFACE -Wall -Wextra)
 
 add_subdirectory(src/core)
+add_subdirectory(src/thumbs)
 add_subdirectory(src/app)
 
 if(BUILD_TESTING)

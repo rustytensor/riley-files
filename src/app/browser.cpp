@@ -3,6 +3,8 @@
 
 #include "browser.h"
 
+#include "thumbnailprovider.h"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QSettings>
@@ -20,6 +22,7 @@ constexpr qint64 findPauseMs = 1000;
 const char *const viewKey = "browse/view";
 const char *const treeKey = "browse/tree";
 const char *const hiddenKey = "browse/showHidden";
+const char *const detailsKey = "browse/details";
 
 QString viewToName(Browser::View view)
 {
@@ -58,8 +61,13 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
                                         : std::make_unique<QSettings>(settingsFile, QSettings::IniFormat))
     , m_model(std::make_unique<FolderModel>())
     , m_ops(std::make_unique<FileOps>())
+    , m_places(std::make_unique<Riley::PlacesModel>())
+    , m_pinned(std::make_unique<Riley::PinnedModel>())
+    , m_details(std::make_unique<FileDetails>())
+    , m_preview(std::make_unique<Preview>())
 {
     connect(m_ops.get(), &FileOps::land, this, &Browser::aimCursor);
+    m_detailsShown = m_settings->value(detailsKey, false).toBool();
 
     m_view = viewFromName(m_settings->value(viewKey).toString());
     m_tree = m_settings->value(treeKey, false).toBool();
@@ -85,6 +93,30 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     connect(this, &Browser::cursorChanged, first, [this, first] { first->mirrorCursor(m_cursor); });
     connect(model, &FolderModel::loaded, first, [first] { first->setReady(true); });
     m_columns.append(first);
+
+    // The sidebar marks the place shown, and keeps its cursor on a row there is.
+    connect(this, &Browser::folderChanged, this, &Browser::sidebarChanged);
+    const auto sidebarRows = [this] {
+        setSidebarCursor(m_sidebarCursor);
+        emit sidebarChanged();
+    };
+    connect(m_places.get(), &QAbstractItemModel::modelReset, this, sidebarRows);
+    connect(m_pinned.get(), &QAbstractItemModel::modelReset, this, sidebarRows);
+    connect(m_pinned.get(), &QAbstractItemModel::rowsInserted, this, sidebarRows);
+    connect(m_pinned.get(), &QAbstractItemModel::rowsRemoved, this, sidebarRows);
+    connect(m_pinned.get(), &Riley::PinnedModel::countChanged, this, sidebarRows);
+
+    // The details and the preview follow the cursor, through every change to the rows.
+    connect(this, &Browser::cursorChanged, this, &Browser::followFocus);
+    connect(this, &Browser::folderChanged, this, &Browser::followFocus);
+    connect(this, &Browser::activeColumnChanged, this, &Browser::followFocus);
+    connect(model, &QAbstractItemModel::rowsInserted, this, &Browser::followFocus);
+    connect(model, &QAbstractItemModel::rowsRemoved, this, &Browser::followFocus);
+    connect(model, &QAbstractItemModel::modelReset, this, &Browser::followFocus);
+    connect(model, &QAbstractItemModel::dataChanged, this, [this] {
+        m_followed.clear(); // the same row, changed: read it again
+        followFocus();
+    });
 }
 
 Browser::~Browser() = default;
@@ -288,6 +320,16 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     // While a name clash is asked, the keys answer it and do nothing else.
     if (m_ops->asking())
         return m_ops->clashKey(key, mods);
+    // While the preview is open, the keys move it along the files or close it.
+    if (m_preview->isOpen())
+        return previewKey(key, mods);
+    // Tab moves the keys between the sidebar and the files.
+    if ((key == Qt::Key_Tab && mods == Qt::NoModifier) || key == Qt::Key_Backtab) {
+        setSidebarFocus(!m_sidebarFocus);
+        return true;
+    }
+    if (m_sidebarFocus && sidebarKey(key, mods))
+        return true;
     if (fileKey(key, mods))
         return true;
 
@@ -316,6 +358,12 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
             return true;
         case Qt::Key_R:
             m_model->reload();
+            return true;
+        case Qt::Key_D:
+            togglePin();
+            return true;
+        case Qt::Key_I:
+            setDetailsShown(!m_detailsShown);
             return true;
         default:
             return false;
@@ -347,6 +395,16 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     if (mods == Qt::NoModifier) {
         if (key == Qt::Key_Backspace) {
             goUp();
+            return true;
+        }
+        // Space opens the preview, except in the middle of typing a name.
+        if (key == Qt::Key_Space && !finding) {
+            const QString path = activeModel()->pathAt(activeCursor());
+            if (!path.isEmpty()) {
+                m_preview->setOpen(true);
+                m_preview->show(path);
+                m_followed = path;
+            }
             return true;
         }
         // T is the tree switch, except in the middle of typing a name.
@@ -713,7 +771,9 @@ void Browser::previewUnderCursor()
 
 void Browser::appendColumn(const QString &path)
 {
-    m_columns.append(new FolderColumn(path, m_model->showHidden(), this));
+    auto *column = new FolderColumn(path, m_model->showHidden(), this);
+    connect(column, &FolderColumn::cursorChanged, this, &Browser::followFocus);
+    m_columns.append(column);
     emit columnsChanged();
 }
 
@@ -833,4 +893,202 @@ bool Browser::landAim()
     if (edit)
         m_ops->startRename(path);
     return true;
+}
+
+QString Browser::thumbnailSource(const QString &path, bool isDir, const QDateTime &modified) const
+{
+    if (isDir || path.isEmpty())
+        return QString();
+    return ThumbnailProvider::sourceFor(path, modified);
+}
+
+// The sidebar: places, then pinned folders.
+
+int Browser::markedPlace() const
+{
+    return m_places->rowOf(folder());
+}
+
+int Browser::markedPin() const
+{
+    return m_pinned->rowOf(folder());
+}
+
+bool Browser::folderPinned() const
+{
+    return !folder().isEmpty() && m_pinned->isPinned(folder());
+}
+
+void Browser::setSidebarCursor(int row)
+{
+    const int rows = m_places->count() + m_pinned->count();
+    row = rows == 0 ? 0 : std::clamp(row, 0, rows - 1);
+    if (row == m_sidebarCursor)
+        return;
+    m_sidebarCursor = row;
+    emit sidebarChanged();
+}
+
+void Browser::setSidebarFocus(bool on)
+{
+    if (on && m_places->count() + m_pinned->count() == 0)
+        on = false;
+    if (on == m_sidebarFocus)
+        return;
+    m_sidebarFocus = on;
+    if (on) {
+        // The cursor starts on the place shown, when there is one.
+        const int place = markedPlace();
+        const int pin = markedPin();
+        if (place >= 0)
+            m_sidebarCursor = place;
+        else if (pin >= 0)
+            m_sidebarCursor = m_places->count() + pin;
+        setSidebarCursor(m_sidebarCursor);
+    }
+    emit sidebarChanged();
+}
+
+void Browser::openSidebarRow(int row)
+{
+    const int places = m_places->count();
+    const QString path = row < places ? m_places->pathAt(row) : m_pinned->pathAt(row - places);
+    if (path.isEmpty())
+        return;
+    setSidebarCursor(row);
+    setSidebarFocus(false);
+    if (!QFileInfo(path).isDir()) {
+        m_ops->say(QStringLiteral("“%1” is not there any more.").arg(QFileInfo(path).fileName()));
+        return;
+    }
+    if (clean(path) != folder())
+        open(path);
+}
+
+void Browser::togglePin()
+{
+    const QString path = folder();
+    if (path.isEmpty())
+        return;
+    const bool was = m_pinned->isPinned(path);
+    const bool now = m_pinned->toggle(path);
+    const QString name = folderName();
+    if (now == was)
+        m_ops->say(m_pinned->error().isEmpty() ? QStringLiteral("The pinned folders could not be changed.")
+                                               : m_pinned->error());
+    else
+        m_ops->say(now ? QStringLiteral("Pinned “%1” to the sidebar.").arg(name)
+                       : QStringLiteral("Unpinned “%1”.").arg(name));
+    emit sidebarChanged();
+}
+
+bool Browser::sidebarKey(int key, Qt::KeyboardModifiers mods)
+{
+    if (mods != Qt::NoModifier)
+        return false;
+    const int rows = m_places->count() + m_pinned->count();
+    switch (key) {
+    case Qt::Key_Up:
+        setSidebarCursor(m_sidebarCursor - 1);
+        return true;
+    case Qt::Key_Down:
+        setSidebarCursor(m_sidebarCursor + 1);
+        return true;
+    case Qt::Key_Home:
+    case Qt::Key_PageUp:
+        setSidebarCursor(0);
+        return true;
+    case Qt::Key_End:
+    case Qt::Key_PageDown:
+        setSidebarCursor(rows - 1);
+        return true;
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+    case Qt::Key_Right:
+    case Qt::Key_Space:
+        openSidebarRow(m_sidebarCursor);
+        return true;
+    case Qt::Key_Escape:
+    case Qt::Key_Left:
+        setSidebarFocus(false);
+        return true;
+    default:
+        // Other keys belong to the files (Backspace, Delete, F2 ...), not to typing here.
+        return key != Qt::Key_Backspace && key != Qt::Key_Delete && key != Qt::Key_F2;
+    }
+}
+
+// The details pane and the preview.
+
+void Browser::setDetailsShown(bool shown)
+{
+    if (shown == m_detailsShown)
+        return;
+    m_detailsShown = shown;
+    m_settings->setValue(detailsKey, shown);
+    m_settings->sync();
+    if (shown) {
+        m_followed.clear();
+        followFocus();
+    }
+    emit detailsShownChanged();
+}
+
+QString Browser::focusPath() const
+{
+    const QString path = activeModel()->pathAt(activeCursor());
+    return path.isEmpty() ? folder() : path;
+}
+
+void Browser::followFocus()
+{
+    const QString path = focusPath();
+    if (path == m_followed)
+        return;
+    m_followed = path;
+    // A pane that is not shown reads nothing.
+    if (m_detailsShown)
+        m_details->setPath(path, showHidden());
+    if (m_preview->isOpen())
+        m_preview->show(activeModel()->pathAt(activeCursor()));
+}
+
+void Browser::stepPreview(int by)
+{
+    FolderModel *model = activeModel();
+    const int n = model->count();
+    if (n == 0)
+        return;
+    const int row = std::clamp(activeCursor() + by, 0, n - 1);
+    if (row != activeCursor()) {
+        setActiveCursor(row);
+        if (m_view == Columns)
+            previewUnderCursor();
+    }
+    followFocus();
+}
+
+bool Browser::previewKey(int key, Qt::KeyboardModifiers mods)
+{
+    if (mods != Qt::NoModifier)
+        return true;
+    switch (key) {
+    case Qt::Key_Space:
+    case Qt::Key_Escape:
+        m_preview->setOpen(false);
+        m_followed.clear();
+        followFocus();
+        return true;
+    case Qt::Key_Up:
+    case Qt::Key_Left:
+        stepPreview(-1);
+        return true;
+    case Qt::Key_Down:
+    case Qt::Key_Right:
+        stepPreview(+1);
+        return true;
+    default:
+        // The preview is in front of everything; the other keys wait until it closes.
+        return true;
+    }
 }

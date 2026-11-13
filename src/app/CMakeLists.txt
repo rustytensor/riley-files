@@ -14,6 +14,9 @@ qt_add_library(riley-ui SHARED
     appwindow.h appwindow.cpp
     commandline.h commandline.cpp
     coretypes.h
+    thumbnailprovider.h thumbnailprovider.cpp
+    details.h details.cpp
+    preview.h preview.cpp
 )
 
 set(rf_qml_files
@@ -21,6 +24,7 @@ set(rf_qml_files
     qml/Theme.qml
     qml/HeaderBar.qml
     qml/Sidebar.qml
+    qml/SidebarIcon.qml
     qml/ContentArea.qml
     qml/FileList.qml
     qml/FileRow.qml
@@ -35,6 +39,8 @@ set(rf_qml_files
     qml/ProgressStrip.qml
     qml/MessageBar.qml
     qml/ClashDialog.qml
+    qml/DetailsPane.qml
+    qml/PreviewOverlay.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.
@@ -58,7 +64,7 @@ qt_add_qml_module(riley-ui
 target_include_directories(riley-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(riley-ui
-    PUBLIC riley-core Qt6::Gui Qt6::Qml Qt6::Quick
+    PUBLIC riley-core riley-thumbs Qt6::Gui Qt6::Qml Qt6::Quick
     PRIVATE riley_warnings)
 
 set_target_properties(riley-ui PROPERTIES

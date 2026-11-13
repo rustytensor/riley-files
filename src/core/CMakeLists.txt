@@ -20,6 +20,10 @@ add_library(riley-core SHARED
     trash.h trash.cpp
     trashjobs.h trashjobs.cpp
     undohistory.h undohistory.cpp
+    # The sidebar (milestone 3): places.h the fixed places (home, XDG user folders, trash),
+    # pinnedfolders.h the pinned folders kept in the GTK 3 bookmarks file.
+    places.h places.cpp
+    pinnedfolders.h pinnedfolders.cpp
 )
 
 include(GenerateExportHeader)

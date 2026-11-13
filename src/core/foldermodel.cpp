@@ -532,6 +532,12 @@ QString FolderModel::linesFor(const Node *node) const
 
 // ---- reading folders -----------------------------------------------------------------------
 
+QSet<Qt::HANDLE> FolderModel::listingThreads() const
+{
+    QMutexLocker locker(&m_threadsLock);
+    return m_listingThreads;
+}
+
 void FolderModel::requestListing(Node *folder)
 {
     const QString path = folder->entry.path;
@@ -545,6 +551,10 @@ void FolderModel::requestListing(Node *folder)
     const SortKey key = m_sortKey;
 
     m_pool.start([this, wanted, generation, request, path, options, key] {
+        {
+            QMutexLocker locker(&m_threadsLock);
+            m_listingThreads.insert(QThread::currentThreadId());
+        }
         const auto stale = [&wanted, generation] { return wanted->load() != generation; };
         ListingResult result = listFolder(path, options, key, stale);
         if (stale())

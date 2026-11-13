@@ -7,7 +7,8 @@ import QtQuick
 
 // Asked when a name is already taken where something is copied or moved. Nothing is ever
 // overwritten without this answer, and Replace sends the old one to the trash. The keys answer
-// it: Left and Right choose, Return answers, or S, K and R straight away; Escape skips.
+// it: Left and Right choose, Return answers, or S, K, R (and M for Merge, offered when a folder
+// meets a folder) straight away; Escape skips.
 Rectangle {
     id: dialog
     objectName: "clashDialog"
@@ -98,11 +99,14 @@ Rectangle {
                 spacing: 8
 
                 Repeater {
+                    // Merge only when a folder meets a folder.
                     model: [
                         { name: "skipButton", label: "Skip", key: "S", button: FileOps.SkipButton },
                         { name: "keepBothButton", label: "Keep both", key: "K", button: FileOps.KeepBothButton },
                         { name: "replaceButton", label: "Replace", key: "R", button: FileOps.ReplaceButton }
-                    ]
+                    ].concat(dialog.ops.clashCanMerge
+                             ? [{ name: "mergeButton", label: "Merge", key: "M", button: FileOps.MergeButton }]
+                             : [])
 
                     delegate: Rectangle {
                         id: choice
@@ -140,7 +144,9 @@ Rectangle {
             Text {
                 width: parent.width
                 horizontalAlignment: Text.AlignRight
-                text: "← → choose · Return answers · S, K, R · Replace sends the old one to the trash"
+                text: dialog.ops.clashCanMerge
+                      ? "← → choose · Return answers · S, K, R, M · Merge puts its items into the folder already there, asking about each name taken"
+                      : "← → choose · Return answers · S, K, R · Replace sends the old one to the trash"
                 wrapMode: Text.Wrap
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall

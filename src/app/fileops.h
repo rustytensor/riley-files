@@ -39,6 +39,7 @@ class FileOps : public QObject
     Q_PROPERTY(int clashButton READ clashButton WRITE setClashButton NOTIFY clashChanged)
     Q_PROPERTY(bool clashForAll READ clashForAll WRITE setClashForAll NOTIFY clashChanged)
     Q_PROPERTY(bool clashOffersForAll READ clashOffersForAll NOTIFY clashChanged)
+    Q_PROPERTY(bool clashCanMerge READ clashCanMerge NOTIFY clashChanged)
 
     Q_PROPERTY(bool editing READ editing NOTIFY editingChanged)
     Q_PROPERTY(QString editingPath READ editingPath NOTIFY editingChanged)
@@ -52,8 +53,8 @@ class FileOps : public QObject
     Q_PROPERTY(QString redoText READ redoText NOTIFY historyChanged)
 
 public:
-    // The clash dialog's buttons, left to right.
-    enum ClashButton { SkipButton, KeepBothButton, ReplaceButton };
+    // The clash dialog's buttons, left to right. Merge is there only when a folder meets a folder.
+    enum ClashButton { SkipButton, KeepBothButton, ReplaceButton, MergeButton };
     Q_ENUM(ClashButton)
 
     // The two clipboard formats other file managers read and write.
@@ -105,6 +106,8 @@ public:
     bool clashForAll() const { return m_clashForAll; }
     void setClashForAll(bool on);
     bool clashOffersForAll() const;
+    // A folder meets a folder: Merge is offered (and chosen at first).
+    bool clashCanMerge() const;
     // Answers with this button (a ClashButton), or with the one chosen when -1.
     Q_INVOKABLE void answerClash(int button = -1);
     // A key while the clash is asked. Returns true when used (every key is, while asking).

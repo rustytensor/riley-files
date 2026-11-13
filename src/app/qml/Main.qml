@@ -3,8 +3,9 @@
 
 import QtQuick
 
-// The main window: a header across the top, the sidebar on the left, the folder on the right,
-// and along the bottom the messages and the progress of file operations. Every key goes to the
+// The main window: a header across the top, the sidebar on the left, the folder in the middle,
+// the details pane on the right when it is shown, and along the bottom the messages and the
+// progress of file operations. The preview, when open, lies over all of it. Every key goes to the
 // browser, which decides what it does; only a name being edited takes the typing.
 Window {
     id: root
@@ -37,26 +38,35 @@ Window {
 
         Sidebar {
             id: sidebar
+            browser: root.browser
             anchors { top: header.bottom; bottom: parent.bottom; left: parent.left }
+        }
+
+        DetailsPane {
+            id: details
+            browser: root.browser
+            visible: root.browser.detailsShown
+            width: visible ? implicitWidth : 0
+            anchors { top: header.bottom; bottom: parent.bottom; right: parent.right }
         }
 
         ContentArea {
             browser: root.browser
-            anchors { top: header.bottom; bottom: bottomBars.top; left: sidebar.right; right: parent.right }
+            anchors { top: header.bottom; bottom: bottomBars.top; left: sidebar.right; right: details.left }
         }
 
         // Along the bottom, from the edge up: progress, messages, and the name editor of the
         // views that do not edit names in place. Each takes no room while hidden.
         ProgressStrip {
             id: progress
-            anchors { bottom: parent.bottom; left: sidebar.right; right: parent.right }
+            anchors { bottom: parent.bottom; left: sidebar.right; right: details.left }
             height: implicitHeight
             ops: root.browser.ops
         }
 
         MessageBar {
             id: messages
-            anchors { bottom: progress.top; left: sidebar.right; right: parent.right }
+            anchors { bottom: progress.top; left: sidebar.right; right: details.left }
             height: implicitHeight
             ops: root.browser.ops
         }
@@ -64,7 +74,7 @@ Window {
         // The list edits a name in its row; the other views edit it here.
         Rectangle {
             id: bottomBars
-            anchors { bottom: messages.top; left: sidebar.right; right: parent.right }
+            anchors { bottom: messages.top; left: sidebar.right; right: details.left }
             visible: renameHere.visible
             height: visible ? Theme.rowHeight + 16 : 0
             color: Theme.strip
@@ -87,6 +97,11 @@ Window {
                 }
                 height: Theme.rowHeight
             }
+        }
+
+        PreviewOverlay {
+            anchors.fill: parent
+            browser: root.browser
         }
 
         ClashDialog {

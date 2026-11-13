@@ -9,6 +9,9 @@
 #include <memory>
 
 class Browser;
+namespace Riley {
+class Thumbnailer;
+}
 class QQuickWindow;
 
 // One main window: the QML engine, the Main window from the RileyFiles module and the browser
@@ -26,6 +29,7 @@ public:
     // The engine, for watching its warnings before load().
     QQmlApplicationEngine &engine() { return *m_engine; }
     Browser &browser() { return *m_browser; }
+    Riley::Thumbnailer &thumbnailer() { return *m_thumbnailer; }
 
     // Opens `location` (see Browser::openLocation) and loads the window. False when the window
     // did not load.
@@ -37,5 +41,7 @@ public:
 private:
     // The browser outlives the engine, so no binding ever reads a deleted browser.
     std::unique_ptr<Browser> m_browser;
+    // Makes the grid's thumbnails; shared with the engine's image provider.
+    std::shared_ptr<Riley::Thumbnailer> m_thumbnailer;
     std::unique_ptr<QQmlApplicationEngine> m_engine;
 };

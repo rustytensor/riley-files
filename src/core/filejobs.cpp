@@ -205,57 +205,79 @@ void TransferJob::transferOne(const QString &source)
         addFailure(srcPath, QStringLiteral("Cannot %1 “%2”: %3").arg(verb, name, errorText(errno)));
         return;
     }
-    Tally mine;
-    tally(src, st, &mine);
     const bool isFolder = S_ISDIR(st.st_mode);
+    auto skipAll = [&] {
+        Tally mine;
+        tally(src, st, &mine);
+        addDone(mine.files, mine.bytes);
+    };
 
     if (isFolder && isSameOrInside(m_destination, srcPath)) {
         addFailure(srcPath, QStringLiteral("Cannot %1 the folder “%2” into itself").arg(verb, name));
-        addDone(mine.files, mine.bytes);
+        skipAll();
         return;
     }
     if (m_move && isSameOrInside(QFileInfo(srcPath).absolutePath(), m_destination)
         && isSameOrInside(m_destination, QFileInfo(srcPath).absolutePath())) {
-        addDone(mine.files, mine.bytes); // already there: nothing to do
+        skipAll(); // already there: nothing to do
         return;
     }
 
+    const QString target = place(srcPath, st, m_destination);
+    if (!target.isEmpty()) {
+        QMutexLocker lock(&m_targetsMutex);
+        m_targets.append(target);
+    }
+}
+
+QString TransferJob::place(const QString &srcPath, const struct stat &st, const QString &folder)
+{
+    const QByteArray src = QFile::encodeName(srcPath);
+    const QString name = QFileInfo(srcPath).fileName();
+    const QString verb = m_move ? QStringLiteral("move") : QStringLiteral("copy");
+    const bool isFolder = S_ISDIR(st.st_mode);
+    Tally mine;
+    tally(src, st, &mine);
+
     QString targetName = name;
-    QString target = m_destination + QLatin1Char('/') + targetName;
+    QString target = folder + QLatin1Char('/') + targetName;
     struct stat tst;
     if (::lstat(QFile::encodeName(target).constData(), &tst) == 0) {
         if (tst.st_dev == st.st_dev && tst.st_ino == st.st_ino) {
             // Copying a thing onto itself: the only safe answer is a second copy beside it.
-            targetName = freeName(m_destination, name, isFolder);
+            targetName = freeName(folder, name, isFolder);
         } else if (isSameOrInside(srcPath, target)) {
             addFailure(srcPath, QStringLiteral("Cannot %1 “%2” over the folder that holds it").arg(verb, name));
             addDone(mine.files, mine.bytes);
-            return;
+            return QString();
         } else {
-            const std::optional<ClashChoice> choice = askClash(srcPath, target);
+            const std::optional<ClashChoice> choice = askClash(srcPath, target, isFolder && S_ISDIR(tst.st_mode));
             if (!choice)
-                return; // stopped while asking
+                return QString(); // stopped while asking
             switch (*choice) {
             case ClashChoice::Skip:
                 addDone(mine.files, mine.bytes);
-                return;
+                return QString();
             case ClashChoice::KeepBoth:
-                targetName = freeName(m_destination, name, isFolder);
+                targetName = freeName(folder, name, isFolder);
                 break;
+            case ClashChoice::Merge:
+                mergeFolder(srcPath, target);
+                return target;
             case ClashChoice::Replace: {
                 QString why;
                 const std::optional<TrashEntry> trashed = Trash::put(target, &why);
                 if (!trashed) {
                     addFailure(srcPath, QStringLiteral("“%1” was not replaced: %2").arg(name, why));
                     addDone(mine.files, mine.bytes);
-                    return;
+                    return QString();
                 }
                 addStep(JobStep::Trashed, target, trashed->trashedPath);
                 break;
             }
             }
         }
-        target = m_destination + QLatin1Char('/') + targetName;
+        target = folder + QLatin1Char('/') + targetName;
     }
     const QByteArray dst = QFile::encodeName(target);
 
@@ -273,14 +295,12 @@ void TransferJob::transferOne(const QString &source)
         if (renameErrno == 0) {
             addStep(JobStep::Moved, srcPath, target);
             addDone(mine.files, mine.bytes);
-            QMutexLocker lock(&m_targetsMutex);
-            m_targets.append(target);
-            return;
+            return target;
         }
         if (renameErrno != EXDEV) {
             addFailure(srcPath, QStringLiteral("Cannot move “%1”: %2").arg(name, errorText(renameErrno)));
             addDone(mine.files, mine.bytes);
-            return;
+            return QString();
         }
         // Another drive: copy everything, and only then remove the original.
         const qint64 failuresBefore = failureCount();
@@ -290,7 +310,7 @@ void TransferJob::transferOne(const QString &source)
             dropStep(JobStep::Created, srcPath, target);
             if (!stopRequested() && failureCount() == failuresBefore)
                 addFailure(srcPath, QStringLiteral("Cannot move “%1”").arg(name));
-            return;
+            return QString();
         }
         if (!removeOriginal(src)) {
             addFailure(srcPath, QStringLiteral("“%1” was copied, but the original could not be removed: %2")
@@ -299,16 +319,45 @@ void TransferJob::transferOne(const QString &source)
             dropStep(JobStep::Created, srcPath, target);
             addStep(JobStep::Moved, srcPath, target);
         }
-        QMutexLocker lock(&m_targetsMutex);
-        m_targets.append(target);
-        return;
+        return target;
     }
 
     copyEntry(src, dst, st, true);
-    if (pathExists(target)) {
-        QMutexLocker lock(&m_targetsMutex);
-        m_targets.append(target);
+    return pathExists(target) ? target : QString();
+}
+
+void TransferJob::mergeFolder(const QString &srcPath, const QString &target)
+{
+    const QByteArray src = QFile::encodeName(srcPath);
+    QList<QByteArray> names;
+    if (!namesIn(src, &names)) {
+        addFailure(srcPath, QStringLiteral("Cannot read the folder “%1”: %2").arg(nameOf(src), errorText(errno)));
+        struct stat st;
+        if (::lstat(src.constData(), &st) == 0) {
+            Tally mine;
+            tally(src, st, &mine);
+            addDone(mine.files, mine.bytes);
+        }
+        return;
     }
+    for (const QByteArray &name : std::as_const(names)) {
+        if (stopRequested())
+            return;
+        const QByteArray from = joined(src, name);
+        struct stat cst;
+        if (::lstat(from.constData(), &cst) != 0) {
+            if (errno != ENOENT) // a file removed meanwhile is simply not copied
+                addFailure(pathOf(from), QStringLiteral("Cannot %1 “%2”: %3")
+                                             .arg(m_move ? QStringLiteral("move") : QStringLiteral("copy"),
+                                                  nameOf(from), errorText(errno)));
+            continue;
+        }
+        place(pathOf(from), cst, target);
+    }
+    // A move took everything out of the source folder: the emptied folder goes too, as a move
+    // would have taken it. Anything skipped keeps it there.
+    if (m_move && !stopRequested() && ::rmdir(src.constData()) == 0)
+        addStep(JobStep::FolderRemoved, srcPath, QString());
 }
 
 bool TransferJob::copyEntry(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top)

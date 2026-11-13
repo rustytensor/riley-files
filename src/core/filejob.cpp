@@ -45,6 +45,12 @@ QString FileJob::clashTarget() const
     return m_clashTarget;
 }
 
+bool FileJob::clashCanMerge() const
+{
+    QMutexLocker lock(&m_mutex);
+    return m_clashCanMerge;
+}
+
 QList<JobFailure> FileJob::failures() const
 {
     QMutexLocker lock(&m_mutex);
@@ -75,21 +81,24 @@ void FileJob::answerClash(ClashChoice choice, bool forAll)
     QMutexLocker lock(&m_mutex);
     if (m_state.load() != State::Asking)
         return;
+    if (choice == ClashChoice::Merge && !m_clashCanMerge)
+        return; // only a folder meeting a folder can be merged: the question stays open
     m_answer = choice;
     if (forAll)
         m_answerForAll = choice;
     m_answered.wakeAll();
 }
 
-std::optional<FileJob::ClashChoice> FileJob::askClash(const QString &source, const QString &target)
+std::optional<FileJob::ClashChoice> FileJob::askClash(const QString &source, const QString &target, bool canMerge)
 {
     QMutexLocker lock(&m_mutex);
-    if (m_answerForAll)
+    if (m_answerForAll && (canMerge || *m_answerForAll != ClashChoice::Merge))
         return m_answerForAll;
     if (m_stop.load())
         return std::nullopt;
     m_clashSource = source;
     m_clashTarget = target;
+    m_clashCanMerge = canMerge;
     m_answer.reset();
     m_state.store(State::Asking);
     QMetaObject::invokeMethod(this, [this, source, target] {
@@ -101,6 +110,7 @@ std::optional<FileJob::ClashChoice> FileJob::askClash(const QString &source, con
     const std::optional<ClashChoice> answer = m_stop.load() ? std::nullopt : m_answer;
     m_clashSource.clear();
     m_clashTarget.clear();
+    m_clashCanMerge = false;
     m_answer.reset();
     m_state.store(State::Running);
     QMetaObject::invokeMethod(this, [this] { emit stateChanged(State::Running); }, Qt::QueuedConnection);

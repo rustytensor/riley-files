@@ -18,6 +18,8 @@ Rectangle {
     required property int depth
     required property bool open
     required property string lines
+    required property string path
+    required property var modified
 
     readonly property bool current: ListView.isCurrentItem
     // How far the row is pushed in by the tree; 0 with the tree off.
@@ -70,6 +72,24 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         category: row.category
         opacity: row.hidden ? 0.55 : 1
+        visible: !thumbnail.shown
+    }
+
+    // A file's small thumbnail takes the icon's place once it is made.
+    Image {
+        id: thumbnail
+        objectName: "thumbnail"
+
+        readonly property bool shown: status === Image.Ready && implicitWidth > 0
+
+        anchors.fill: icon
+        source: row.browser.thumbnailSource(row.path, row.isDir, row.modified)
+        sourceSize { width: Theme.iconSize * 2; height: Theme.iconSize * 2 }
+        asynchronous: true
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        opacity: row.hidden ? 0.55 : 1
+        visible: shown
     }
 
     Text {

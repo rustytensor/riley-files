@@ -3,7 +3,8 @@
 
 import QtQuick
 
-// One tile of the grid view: a large icon with the name below it.
+// One tile of the grid view: a large icon with the name below it. A file's thumbnail takes the
+// icon's place once it is made (on worker threads; a tile scrolled away drops its request).
 Item {
     id: tile
 
@@ -12,6 +13,9 @@ Item {
     required property string name
     required property bool hidden
     required property string category
+    required property string path
+    required property bool isDir
+    required property var modified
 
     readonly property bool current: GridView.isCurrentItem
 
@@ -29,6 +33,23 @@ Item {
         size: Theme.tileIcon
         category: tile.category
         opacity: tile.hidden ? 0.55 : 1
+        visible: !thumbnail.shown
+    }
+
+    Image {
+        id: thumbnail
+        objectName: "thumbnail"
+
+        readonly property bool shown: status === Image.Ready && implicitWidth > 0
+
+        anchors.fill: icon
+        source: tile.browser.thumbnailSource(tile.path, tile.isDir, tile.modified)
+        sourceSize { width: Theme.tileIcon * 2; height: Theme.tileIcon * 2 }
+        asynchronous: true
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        opacity: tile.hidden ? 0.55 : 1
+        visible: shown
     }
 
     Text {

@@ -73,6 +73,7 @@ private slots:
     void uiNewFolder();
     void uiDeleteGoesToTrash();
     void uiClashDialogAsks();
+    void uiMergeFolders();
     void uiLongCopyCanBeStopped();
     void uiClipboardSharedWithOtherApps();
 
@@ -341,6 +342,76 @@ void FileUiTests::uiClashDialogAsks()
     QTRY_COMPARE(UiHarness::currentName(list), u"a (2).txt"_s);
     QCOMPARE(readFile(d + u"/a.txt"_s), QByteArray("old"));
     QCOMPARE(readFile(d + u"/a (2).txt"_s), QByteArray("new"));
+
+    QVERIFY2(ui.qmlWarnings().isEmpty(), qPrintable(ui.qmlWarnings().join(u'\n')));
+}
+
+void FileUiTests::uiMergeFolders()
+{
+    UiHarness ui;
+    useScratchTrash(ui);
+    const QDir root(ui.root());
+    const QString photos = root.filePath(u"Photos"_s);
+    const QString incoming = root.filePath(u"Incoming"_s);
+    QVERIFY(writeFile(photos + u"/a.jpg"_s, "old"));
+    QVERIFY(writeFile(photos + u"/b.jpg"_s, "b"));
+    QVERIFY(writeFile(incoming + u"/Photos/a.jpg"_s, "new"));
+    QVERIFY(writeFile(incoming + u"/Photos/c.jpg"_s, "c"));
+    QVERIFY(ui.start({ui.root()}));
+
+    QQuickItem *list = ui.view(u"list"_s);
+    QVERIFY(list);
+    QTRY_COMPARE(UiHarness::shownNames(list), (QStringList{u"Incoming"_s, u"Photos"_s}));
+    QTRY_COMPARE(UiHarness::currentName(list), u"Incoming"_s);
+    ui.press(Qt::Key_Return);
+    QCOMPARE(ui.browser().folder(), incoming);
+    QTRY_COMPARE(UiHarness::shownNames(list), (QStringList{u"Photos"_s}));
+    QTRY_COMPARE(UiHarness::currentName(list), u"Photos"_s);
+    ui.press(Qt::Key_C, Qt::ControlModifier);
+    ui.press(Qt::Key_Backspace);
+    QCOMPARE(ui.browser().folder(), root.path());
+    QTRY_COMPARE(UiHarness::shownNames(list), (QStringList{u"Incoming"_s, u"Photos"_s}));
+    ui.press(Qt::Key_V, Qt::ControlModifier);
+
+    // A folder meets a folder: Merge is offered beside the other three, and chosen at first.
+    QTRY_VERIFY(ui.view(u"clashDialog"_s));
+    QTRY_VERIFY(ui.view(u"mergeButton"_s));
+    QCOMPARE(textOf(ui.view(u"mergeButton"_s)), u"Merge"_s);
+    QCOMPARE(textOf(ui.view(u"replaceButton"_s)), u"Replace"_s);
+    QCOMPARE(textOf(ui.view(u"keepBothButton"_s)), u"Keep both"_s);
+    QCOMPARE(textOf(ui.view(u"skipButton"_s)), u"Skip"_s);
+    QVERIFY(textOf(ui.item(u"clashTitle"_s)).contains(u"“Photos”"_s));
+    QVERIFY(chosen(ui, u"mergeButton"_s));
+    ui.press(Qt::Key_Return);
+
+    // Asked again about the file inside, where Merge is not offered.
+    QTRY_VERIFY(textOf(ui.item(u"clashTitle"_s)).contains(u"“a.jpg”"_s));
+    QVERIFY(ui.view(u"clashDialog"_s));
+    QVERIFY(!ui.view(u"mergeButton"_s));
+    QVERIFY(chosen(ui, u"keepBothButton"_s));
+    ui.press(Qt::Key_Return);
+
+    QTRY_VERIFY(!ui.view(u"clashDialog"_s));
+    const auto files = [&photos] {
+        QStringList names = QDir(photos).entryList(QDir::Files);
+        names.sort();
+        return names;
+    };
+    QTRY_COMPARE(files(), (QStringList{u"a (2).jpg"_s, u"a.jpg"_s, u"b.jpg"_s, u"c.jpg"_s}));
+    QCOMPARE(readFile(photos + u"/a (2).jpg"_s), QByteArray("new"));
+    QCOMPARE(readFile(photos + u"/a.jpg"_s), QByteArray("old"));
+    QCOMPARE(readFile(photos + u"/c.jpg"_s), QByteArray("c"));
+    // Only one Photos, the one that was there.
+    QTRY_COMPARE(UiHarness::shownNames(list), (QStringList{u"Incoming"_s, u"Photos"_s}));
+
+    // One undo takes the whole merge back; the source was only copied, and stays.
+    QTRY_VERIFY(ui.browser().ops()->canUndo());
+    ui.press(Qt::Key_Z, Qt::ControlModifier);
+    QTRY_COMPARE(files(), (QStringList{u"a.jpg"_s, u"b.jpg"_s}));
+    QCOMPARE(readFile(photos + u"/a.jpg"_s), QByteArray("old"));
+    QCOMPARE(readFile(photos + u"/b.jpg"_s), QByteArray("b"));
+    QCOMPARE(readFile(incoming + u"/Photos/a.jpg"_s), QByteArray("new"));
+    QCOMPARE(readFile(incoming + u"/Photos/c.jpg"_s), QByteArray("c"));
 
     QVERIFY2(ui.qmlWarnings().isEmpty(), qPrintable(ui.qmlWarnings().join(u'\n')));
 }

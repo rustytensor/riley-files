@@ -75,6 +75,7 @@ QtObject {
     property int tileIcon: 44
     property int columnWidth: 240
     property int sidebarWidth: 220
+    property int detailsWidth: 264
     property int spacing: 12
     property int radius: 8
     property int stripHeight: 58
@@ -84,4 +85,6 @@ QtObject {
     property int fontSmall: 12
     property int fontNormal: 14
     property int fontLarge: 17
+    // Text files in the preview.
+    property string monoFamily: "monospace"
 }

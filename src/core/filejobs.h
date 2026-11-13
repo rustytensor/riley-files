@@ -29,6 +29,11 @@ namespace Riley {
 //
 // A folder is never copied or moved into itself: that item is refused with a failure naming it,
 // and nothing is made for it.
+//
+// A folder meeting a folder of the same name can be merged (ClashChoice::Merge): its items go
+// into the existing folder one by one, each clash asked again, and every item added or replaced
+// is its own step, so one undo takes the merge back. A merging move removes the emptied source
+// folder (a FolderRemoved step).
 class RILEYCORE_EXPORT TransferJob : public FileJob
 {
     Q_OBJECT
@@ -55,6 +60,11 @@ private:
     bool copyFile(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top);
     bool copyFolder(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top);
     void transferOne(const QString &source);
+    // Puts src (whose lstat is st) into folder, asking about a clash. Returns the path that now
+    // holds it (the merged folder after Merge), or nothing when it was skipped or failed.
+    QString place(const QString &srcPath, const struct stat &st, const QString &folder);
+    // Merge: puts each item of the folder srcPath into the existing folder target, one by one.
+    void mergeFolder(const QString &srcPath, const QString &target);
 
     const QStringList m_sources;
     const QString m_destination;

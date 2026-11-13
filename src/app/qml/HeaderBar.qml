@@ -62,13 +62,57 @@ Rectangle {
     Text {
         anchors {
             left: title.right; leftMargin: Theme.spacing
-            right: parent.right; rightMargin: Theme.spacing * 1.5
+            right: tools.left; rightMargin: Theme.spacing
             baseline: title.baseline
         }
         text: bar.browser.folder
         color: Theme.textFaint
         font.pixelSize: Theme.fontSmall
         elide: Text.ElideMiddle
+    }
+
+    // On the right: the details pane's switch (Ctrl+I), lit while the pane is shown.
+    Row {
+        id: tools
+        anchors { right: parent.right; rightMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
+        spacing: 2
+
+        Rectangle {
+            id: detailsButton
+            objectName: "detailsButton"
+
+            readonly property bool on: bar.browser.detailsShown
+
+            width: 30
+            height: 30
+            radius: Theme.radius
+            color: on ? Theme.accentSoft : (detailsMouse.containsMouse ? Theme.hoverRow : "transparent")
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 16
+                height: 16
+                radius: 8
+                color: "transparent"
+                border.width: 1.5
+                border.color: detailsButton.on ? Theme.accent : Theme.textMuted
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "i"
+                    color: detailsButton.on ? Theme.accent : Theme.textMuted
+                    font.pixelSize: Theme.fontSmall
+                    font.weight: Font.Bold
+                }
+            }
+
+            MouseArea {
+                id: detailsMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: bar.browser.detailsShown = !bar.browser.detailsShown
+            }
+        }
     }
 
     Rectangle {
