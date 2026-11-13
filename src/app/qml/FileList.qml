@@ -90,6 +90,19 @@ Item {
         }
     }
 
+    // A right click opens the context menu: for the row under it, or for the folder when it
+    // is on the empty space around the rows. Other buttons go on to the rows below.
+    MouseArea {
+        objectName: "listContextArea"
+        anchors.fill: view
+        acceptedButtons: Qt.RightButton
+        onPressed: mouse => {
+            const row = view.indexAt(mouse.x + view.contentX, mouse.y + view.contentY)
+            const at = mapToItem(null, mouse.x, mouse.y)
+            list.browser.contextMenuAt(row, at.x, at.y)
+        }
+    }
+
     // The name of the cursor's row, being edited in place.
     RenameField {
         readonly property FileRow row: view.currentItem as FileRow

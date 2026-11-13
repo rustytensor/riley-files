@@ -24,6 +24,12 @@ add_library(riley-core SHARED
     # pinnedfolders.h the pinned folders kept in the GTK 3 bookmarks file.
     places.h places.cpp
     pinnedfolders.h pinnedfolders.cpp
+    # Default apps and custom icons (milestone 4): desktopentry.h reads an application's
+    # .desktop file and fills in its command line; mimeapps.h the freedesktop MIME apps lists;
+    # customicons.h the icons chosen for files, kept by Riley Files itself.
+    desktopentry.h desktopentry.cpp
+    mimeapps.h mimeapps.cpp
+    customicons.h customicons.cpp
 )
 
 include(GenerateExportHeader)

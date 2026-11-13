@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QUrl>
 
 #include <algorithm>
@@ -23,6 +24,11 @@ const char *const viewKey = "browse/view";
 const char *const treeKey = "browse/tree";
 const char *const hiddenKey = "browse/showHidden";
 const char *const detailsKey = "browse/details";
+const char *const sidebarShownKey = "browse/sidebar";
+const char *const sortKey = "browse/sort";
+const char *const paneWidthsKey = "panes/mode";
+// The view a new window starts in; empty: the one last used (viewKey).
+const char *const defaultViewKey = "View/default";
 
 QString viewToName(Browser::View view)
 {
@@ -57,19 +63,39 @@ QString clean(const QString &path)
 
 Browser::Browser(const QString &settingsFile, QObject *parent)
     : QObject(parent)
-    , m_settings(settingsFile.isEmpty() ? std::make_unique<QSettings>()
-                                        : std::make_unique<QSettings>(settingsFile, QSettings::IniFormat))
+    , m_settings(std::make_unique<QSettings>(settingsFile.isEmpty() ? defaultSettingsFile() : settingsFile,
+                                             QSettings::IniFormat))
     , m_model(std::make_unique<FolderModel>())
     , m_ops(std::make_unique<FileOps>())
     , m_places(std::make_unique<Riley::PlacesModel>())
     , m_pinned(std::make_unique<Riley::PinnedModel>())
     , m_details(std::make_unique<FileDetails>())
     , m_preview(std::make_unique<Preview>())
+    , m_actions(std::make_unique<Actions>())
+    , m_panes(std::make_unique<PaneWidths>(m_settings.get()))
+    , m_prefs(std::make_unique<Preferences>(m_settings.get()))
+    , m_icons(std::make_unique<Riley::CustomIcons>())
+    , m_chooser(std::make_unique<Chooser>())
 {
     connect(m_ops.get(), &FileOps::land, this, &Browser::aimCursor);
+    // A chosen icon goes with its file through every rename and move made here.
+    connect(m_ops.get(), &FileOps::moved, m_icons.get(), &Riley::CustomIcons::moved);
+    connect(m_icons.get(), &Riley::CustomIcons::changed, this, [this] {
+        ++m_iconsRevision;
+        emit iconsChanged();
+    });
     m_detailsShown = m_settings->value(detailsKey, false).toBool();
+    m_sidebarShown = m_settings->value(sidebarShownKey, true).toBool();
+    const QString panes = m_settings->value(paneWidthsKey).toString();
+    if (panes == QLatin1String("automatic") || panes == QLatin1String("proportional"))
+        m_paneWidths = panes;
+    m_panes->setMode(PaneWidths::modeFromName(m_paneWidths));
+    const int sort = m_settings->value(sortKey, int(FolderModel::SortByName)).toInt();
+    if (sort >= int(FolderModel::SortByName) && sort <= int(FolderModel::SortByKind))
+        m_model->setSortKey(FolderModel::Sort(sort));
 
-    m_view = viewFromName(m_settings->value(viewKey).toString());
+    const QString startView = m_settings->value(defaultViewKey).toString();
+    m_view = viewFromName(startView.isEmpty() ? m_settings->value(viewKey).toString() : startView);
     m_tree = m_settings->value(treeKey, false).toBool();
     m_model->setShowHidden(m_settings->value(hiddenKey, false).toBool());
 
@@ -117,6 +143,27 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
         m_followed.clear(); // the same row, changed: read it again
         followFocus();
     });
+
+    addActions();
+    addPreferences();
+    m_model->setFoldersFirst(m_prefs->isOn(QStringLiteral("foldersFirst")));
+    connect(m_prefs.get(), &Preferences::changed, this, &Browser::applyPreference);
+
+    // The automatic pane widths follow the names shown.
+    connect(m_places.get(), &QAbstractItemModel::modelReset, this, &Browser::measureSidebar);
+    connect(m_pinned.get(), &QAbstractItemModel::modelReset, this, &Browser::measureSidebar);
+    connect(m_pinned.get(), &QAbstractItemModel::rowsInserted, this, &Browser::measureSidebar);
+    connect(m_pinned.get(), &QAbstractItemModel::rowsRemoved, this, &Browser::measureSidebar);
+    connect(model, &FolderModel::loaded, this, &Browser::measureColumns);
+    connect(this, &Browser::columnsChanged, this, &Browser::measureColumns);
+    connect(this, &Browser::viewChanged, this, &Browser::measureColumns);
+    measureSidebar();
+}
+
+QString Browser::defaultSettingsFile()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+           + QStringLiteral("/riley-files/riley-files.conf");
 }
 
 Browser::~Browser() = default;
@@ -206,6 +253,7 @@ void Browser::setShowHidden(bool show)
     m_model->setShowHidden(show); // emits showHiddenChanged through the model
     for (qsizetype i = 1; i < m_columns.size(); ++i)
         m_columns.at(i)->model()->setShowHidden(show);
+    m_prefs->refresh();
 }
 
 void Browser::setPageRows(int rows)
@@ -239,7 +287,12 @@ void Browser::openLocation(const QString &location)
 {
     QString path = location;
     if (path.isEmpty()) {
-        path = QDir::homePath();
+        // The start folder of the Preferences, when there is one; else the home folder.
+        const QString start = m_prefs->value(QStringLiteral("startFolder"));
+        const QString expanded = start == QLatin1String("~") || start.startsWith(QLatin1String("~/"))
+                                     ? QDir::homePath() + start.mid(1)
+                                     : start;
+        path = !expanded.isEmpty() && QFileInfo(expanded).isDir() ? expanded : QDir::homePath();
     } else if (path.contains(QLatin1String("://"))) {
         const QUrl url(path);
         path = url.isLocalFile() ? url.toLocalFile() : QDir::homePath();
@@ -308,9 +361,13 @@ void Browser::goUp()
 
 void Browser::activate(int row)
 {
+    const QString path = m_model->pathAt(row);
+    if (path.isEmpty())
+        return;
     if (m_model->isDirAt(row))
-        open(m_model->pathAt(row));
-    // Opening files with their application comes with the default apps milestone.
+        open(path);
+    else
+        openFiles({path});
 }
 
 bool Browser::handleKey(int key, int modifiers, const QString &text)
@@ -320,9 +377,33 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     // While a name clash is asked, the keys answer it and do nothing else.
     if (m_ops->asking())
         return m_ops->clashKey(key, mods);
+    // An open menu is in front of everything else.
+    if (m_actions->menuOpen())
+        return m_actions->menuKey(key, mods);
+    if (!m_question.isEmpty())
+        return questionKey(key, mods);
+    if (m_chooser->shown())
+        return m_chooser->key(key, mods, text);
+    if (m_shortcutsShown)
+        return shortcutsKey(key, mods);
+    // The Preferences take every key while they are open; a text being edited in them takes
+    // its own typing before the keys come here.
+    if (m_prefs->shown())
+        return m_prefs->key(key, mods);
     // While the preview is open, the keys move it along the files or close it.
     if (m_preview->isOpen())
         return previewKey(key, mods);
+
+    // The menus from the keyboard: F10 opens the menu bar's first menu, the Menu key and
+    // Shift+F10 the context menu.
+    if (key == Qt::Key_F10 && mods == Qt::NoModifier) {
+        m_actions->openBarMenu(0);
+        return true;
+    }
+    if ((key == Qt::Key_Menu && mods == Qt::NoModifier) || (key == Qt::Key_F10 && mods == Qt::ShiftModifier)) {
+        contextMenuFromKeys();
+        return true;
+    }
     // Tab moves the keys between the sidebar and the files.
     if ((key == Qt::Key_Tab && mods == Qt::NoModifier) || key == Qt::Key_Backtab) {
         setSidebarFocus(!m_sidebarFocus);
@@ -330,86 +411,21 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     }
     if (m_sidebarFocus && sidebarKey(key, mods))
         return true;
-    if (fileKey(key, mods))
-        return true;
-
-    if (key == Qt::Key_Back) {
-        goBack();
-        return true;
-    }
-    if (key == Qt::Key_Forward) {
-        goForward();
-        return true;
-    }
-
-    if (mods == Qt::ControlModifier) {
-        switch (key) {
-        case Qt::Key_1:
-            setView(Grid);
-            return true;
-        case Qt::Key_2:
-            setView(List);
-            return true;
-        case Qt::Key_3:
-            setView(Columns);
-            return true;
-        case Qt::Key_H:
-            setShowHidden(!showHidden());
-            return true;
-        case Qt::Key_R:
-            m_model->reload();
-            return true;
-        case Qt::Key_D:
-            togglePin();
-            return true;
-        case Qt::Key_I:
-            setDetailsShown(!m_detailsShown);
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    if (mods == Qt::AltModifier) {
-        switch (key) {
-        case Qt::Key_Left:
-            goBack();
-            return true;
-        case Qt::Key_Right:
-            goForward();
-            return true;
-        case Qt::Key_Up:
-            goUp();
-            return true;
-        case Qt::Key_Down:
-            activate(m_cursor);
-            return true;
-        default:
-            return false;
-        }
-    }
 
     const bool finding = !m_findText.isEmpty() && m_findTimer.isValid()
                          && m_findTimer.elapsed() < findPauseMs;
 
+    // The commands, from the one registry the menus show. A plain letter or Space in the middle
+    // of typing a name is part of the name; a command that cannot be used now leaves the key to
+    // the cursor and to typing.
+    const QString id = m_actions->idForKey(key, mods);
+    const bool typingKey = mods == Qt::NoModifier && !text.isEmpty() && text.at(0).isPrint();
+    if (!id.isEmpty() && !(typingKey && finding) && m_actions->trigger(id))
+        return true;
+
     if (mods == Qt::NoModifier) {
-        if (key == Qt::Key_Backspace) {
-            goUp();
-            return true;
-        }
-        // Space opens the preview, except in the middle of typing a name.
-        if (key == Qt::Key_Space && !finding) {
-            const QString path = activeModel()->pathAt(activeCursor());
-            if (!path.isEmpty()) {
-                m_preview->setOpen(true);
-                m_preview->show(path);
-                m_followed = path;
-            }
-            return true;
-        }
-        // T is the tree switch, except in the middle of typing a name.
-        if (key == Qt::Key_T && !finding && m_view == List) {
-            setTree(!m_tree);
+        if (key == Qt::Key_Escape) {
+            m_ops->dismissMessage();
             return true;
         }
         // Each view moves the cursor its own way.
@@ -511,10 +527,6 @@ bool Browser::listKey(int key, Qt::KeyboardModifiers mods)
         return true;
     case Qt::Key_PageDown:
         setCursor(m_cursor + m_pageRows);
-        return true;
-    case Qt::Key_Return:
-    case Qt::Key_Enter:
-        activate(m_cursor);
         return true;
     case Qt::Key_Right:
         if (m_tree)
@@ -635,8 +647,6 @@ bool Browser::gridKey(int key)
         return true;
     case Qt::Key_Home:
     case Qt::Key_End:
-    case Qt::Key_Return:
-    case Qt::Key_Enter:
         return listKey(key, Qt::NoModifier);
     default:
         return false;
@@ -698,11 +708,6 @@ bool Browser::columnsKey(int key)
     case Qt::Key_PageDown:
         to = row + m_pageRows;
         break;
-    case Qt::Key_Return:
-    case Qt::Key_Enter:
-        if (model->isDirAt(row))
-            open(model->pathAt(row));
-        return true;
     case Qt::Key_Right:
         return columnsRight();
     case Qt::Key_Left:
@@ -772,6 +777,9 @@ void Browser::previewUnderCursor()
 void Browser::appendColumn(const QString &path)
 {
     auto *column = new FolderColumn(path, m_model->showHidden(), this);
+    column->model()->setSortKey(m_model->sortKey());
+    column->model()->setFoldersFirst(m_model->foldersFirst());
+    connect(column->model(), &FolderModel::loaded, this, &Browser::measureColumns);
     connect(column, &FolderColumn::cursorChanged, this, &Browser::followFocus);
     m_columns.append(column);
     emit columnsChanged();
@@ -787,64 +795,6 @@ void Browser::closeColumnsAfter(int column)
     emit columnsChanged();
     for (FolderColumn *old : gone)
         old->deleteLater();
-}
-
-// The file keys, the same in every view.
-bool Browser::fileKey(int key, Qt::KeyboardModifiers mods)
-{
-    if (mods == Qt::ControlModifier) {
-        switch (key) {
-        case Qt::Key_C:
-            m_ops->copy(targetPaths(), false);
-            return true;
-        case Qt::Key_X:
-            m_ops->copy(targetPaths(), true);
-            return true;
-        case Qt::Key_V:
-            if (!m_ops->paste(workFolder()))
-                m_ops->say(QStringLiteral("There are no files on the clipboard to paste."));
-            return true;
-        case Qt::Key_Z:
-            m_ops->undo();
-            return true;
-        case Qt::Key_Y:
-            m_ops->redo();
-            return true;
-        default:
-            return false;
-        }
-    }
-    if (mods == (Qt::ControlModifier | Qt::ShiftModifier)) {
-        switch (key) {
-        case Qt::Key_N:
-            m_ops->newFolder(workFolder());
-            return true;
-        case Qt::Key_Z:
-            m_ops->redo();
-            return true;
-        default:
-            return false;
-        }
-    }
-    if (mods == Qt::NoModifier) {
-        switch (key) {
-        case Qt::Key_F2: {
-            const QString path = activeModel()->pathAt(activeCursor());
-            if (!path.isEmpty())
-                m_ops->startRename(path);
-            return true;
-        }
-        case Qt::Key_Delete:
-            m_ops->trash(targetPaths());
-            return true;
-        case Qt::Key_Escape:
-            m_ops->dismissMessage();
-            return true;
-        default:
-            return false;
-        }
-    }
-    return false;
 }
 
 QStringList Browser::targetPaths() const
@@ -931,7 +881,7 @@ void Browser::setSidebarCursor(int row)
 
 void Browser::setSidebarFocus(bool on)
 {
-    if (on && m_places->count() + m_pinned->count() == 0)
+    if (on && (!m_sidebarShown || m_places->count() + m_pinned->count() == 0))
         on = false;
     if (on == m_sidebarFocus)
         return;
@@ -1091,4 +1041,51 @@ bool Browser::previewKey(int key, Qt::KeyboardModifiers mods)
         // The preview is in front of everything; the other keys wait until it closes.
         return true;
     }
+}
+
+// The window's switches the menus hold.
+
+void Browser::setSidebarShown(bool shown)
+{
+    if (shown == m_sidebarShown)
+        return;
+    m_sidebarShown = shown;
+    m_settings->setValue(sidebarShownKey, shown);
+    m_settings->sync();
+    if (!shown)
+        setSidebarFocus(false);
+    emit sidebarShownChanged();
+}
+
+void Browser::setPaneWidths(const QString &mode)
+{
+    if (mode != QLatin1String("fixed") && mode != QLatin1String("automatic")
+        && mode != QLatin1String("proportional"))
+        return;
+    if (mode == m_paneWidths)
+        return;
+    m_paneWidths = mode;
+    m_settings->setValue(paneWidthsKey, mode);
+    m_settings->sync();
+    m_panes->setMode(PaneWidths::modeFromName(mode));
+    m_prefs->refresh();
+    measureColumns();
+    emit paneWidthsChanged();
+}
+
+void Browser::setSortKey(FolderModel::Sort key)
+{
+    m_settings->setValue(sortKey, int(key));
+    m_settings->sync();
+    m_model->setSortKey(key);
+    for (qsizetype i = 1; i < m_columns.size(); ++i)
+        m_columns.at(i)->model()->setSortKey(key);
+}
+
+void Browser::setShortcutsShown(bool shown)
+{
+    if (shown == m_shortcutsShown)
+        return;
+    m_shortcutsShown = shown;
+    emit shortcutsShownChanged();
 }

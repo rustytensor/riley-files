@@ -66,3 +66,26 @@ target_link_libraries(paneui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME paneui_tests COMMAND paneui_tests)
 set_tests_properties(paneui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The menu bar, the context menus and the list of keyboard shortcuts in the window, driven with
+# the mouse and the keys.
+add_executable(menuui_tests menuui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(menuui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME menuui_tests COMMAND menuui_tests)
+set_tests_properties(menuui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The Preferences and the pane widths in the window, driven with the mouse and the keys.
+add_executable(prefsui_tests prefsui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(prefsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME prefsui_tests COMMAND prefsui_tests)
+set_tests_properties(prefsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Default applications and custom icons in the window: Open With, mimeapps.list, Return opening
+# a file with its application, Change Icon and Reset Icon.
+add_executable(appsui_tests appsui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(appsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME appsui_tests COMMAND appsui_tests)
+set_tests_properties(appsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

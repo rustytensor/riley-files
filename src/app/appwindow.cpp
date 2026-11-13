@@ -5,7 +5,10 @@
 
 #include "browser.h"
 #include "thumbnailer.h"
+#include "iconprovider.h"
 #include "thumbnailprovider.h"
+
+#include <QIcon>
 
 #include <QQuickWindow>
 #include <QVariantMap>
@@ -17,6 +20,8 @@ AppWindow::AppWindow(const QString &settingsFile)
 {
     // The engine owns the provider.
     m_engine->addImageProvider(ThumbnailProvider::id(), new ThumbnailProvider(m_thumbnailer));
+    m_engine->addImageProvider(IconProvider::id(), new IconProvider());
+    IconIndex::setThemeName(QIcon::themeName());
 }
 
 AppWindow::~AppWindow()

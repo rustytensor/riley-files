@@ -35,8 +35,8 @@ Flickable {
 
     function showActive() {
         const shown = Math.min(browser.columns.length, browser.activeColumn + 2)
-        const right = shown * Theme.columnWidth
-        const left = browser.activeColumn * Theme.columnWidth
+        const right = shown * browser.panes.column
+        const left = browser.activeColumn * browser.panes.column
         let x = contentX
         if (right > x + width)
             x = right - width

@@ -12,7 +12,8 @@
 
 namespace Riley {
 
-// What a folder is sorted by. Folders always come before files; ties fall back to the name.
+// What a folder is sorted by. Folders come before files unless that is turned off; ties fall back
+// to the name.
 enum class SortKey {
     Name,     // names the way a person reads them
     Size,     // largest first
@@ -34,6 +35,10 @@ public:
 
     SortKey key() const { return m_key; }
 
+    // Folders before files (the default), or folders and files mixed in the one order.
+    bool foldersFirst() const { return m_foldersFirst; }
+    void setFoldersFirst(bool on) { m_foldersFirst = on; }
+
     // True when a belongs before b.
     bool lessThan(const DirEntry &a, const DirEntry &b) const;
 
@@ -49,6 +54,7 @@ private:
 
     QCollator m_collator;
     SortKey m_key = SortKey::Name;
+    bool m_foldersFirst = true;
 };
 
 } // namespace Riley

@@ -130,6 +130,8 @@ signals:
     // The cursor should go to this path once it is shown (something made, pasted or put back).
     // With edit set, its name is edited once the cursor is on it (a new folder).
     void land(const QString &path, bool edit);
+    // A finished job (a move, a rename, an undo of one) put `from` at `to`.
+    void moved(const QString &from, const QString &to);
     void progressChanged();
     void clashChanged();
     void editingChanged();

@@ -30,8 +30,9 @@ Item {
     FileIcon {
         id: icon
         anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: Theme.spacing }
-        size: Theme.tileIcon
+        size: tile.browser.prefs.thumbnailSize
         category: tile.category
+        customSource: tile.browser.customIconSource(tile.path, tile.browser.iconsRevision)
         opacity: tile.hidden ? 0.55 : 1
         visible: !thumbnail.shown
     }
@@ -43,8 +44,9 @@ Item {
         readonly property bool shown: status === Image.Ready && implicitWidth > 0
 
         anchors.fill: icon
-        source: tile.browser.thumbnailSource(tile.path, tile.isDir, tile.modified)
-        sourceSize { width: Theme.tileIcon * 2; height: Theme.tileIcon * 2 }
+        // A chosen icon is shown instead of the thumbnail.
+        source: icon.customSource.length > 0 ? "" : tile.browser.thumbnailSource(tile.path, tile.isDir, tile.modified)
+        sourceSize { width: icon.size * 2; height: icon.size * 2 }
         asynchronous: true
         fillMode: Image.PreserveAspectFit
         smooth: true
@@ -70,7 +72,7 @@ Item {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
-        onClicked: tile.browser.cursor = tile.index
-        onDoubleClicked: tile.browser.activate(tile.index)
+        onClicked: tile.browser.clickRow(tile.index)
+        onDoubleClicked: tile.browser.doubleClickRow(tile.index)
     }
 }

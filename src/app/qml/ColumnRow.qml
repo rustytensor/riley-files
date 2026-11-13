@@ -13,6 +13,7 @@ Rectangle {
     required property bool isDir
     required property bool hidden
     required property string category
+    required property string path
 
     // Whether the keys are in this row's column.
     property bool active: false
@@ -35,6 +36,7 @@ Rectangle {
         x: Theme.spacing
         anchors.verticalCenter: parent.verticalCenter
         category: row.category
+        customSource: row.browser.customIconSource(row.path, row.browser.iconsRevision)
         opacity: row.hidden ? 0.55 : 1
     }
 

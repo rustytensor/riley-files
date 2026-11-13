@@ -41,7 +41,8 @@ public:
     // A scratch folder for this test, and "<scratch>/root" in it (made empty, for fixtures).
     QString scratch() const;
     QString root() const;
-    // The settings file the windows read and write; it lives in the scratch folder.
+    // The settings file the windows read and write: the program's own place for it, which is in
+    // the scratch folder (XDG_CONFIG_HOME is "<scratch>/config").
     QString settingsFile() const;
 
     // Fills root() with the tree fixture: Alpha/Beta/c.txt, Alpha/d.txt, Zeta/z.txt, e.txt.
@@ -58,7 +59,8 @@ public:
     QQuickWindow *window() const;
     Browser &browser() const;
     // What makes the window's thumbnails; they go to "<scratch>/cache/thumbnails". The window's
-    // config folder (XDG_CONFIG_HOME: pinned folders, user-dirs.dirs) is "<scratch>/config".
+    // config folder (XDG_CONFIG_HOME: pinned folders, user-dirs.dirs, mimeapps.list) is
+    // "<scratch>/config", and its data folder (XDG_DATA_HOME: trash, custom icons) "<scratch>/data".
     Riley::Thumbnailer &thumbnailer() const;
 
     // The item with this objectName in the window, or null.

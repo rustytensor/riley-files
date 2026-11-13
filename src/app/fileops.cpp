@@ -355,6 +355,11 @@ void FileOps::watch(FileJob *job)
 
 void FileOps::jobEnded(FileJob *job)
 {
+    const QList<Riley::JobStep> steps = job->steps();
+    for (const Riley::JobStep &step : steps) {
+        if (step.kind == Riley::JobStep::Moved)
+            emit moved(step.from, step.to);
+    }
     if (m_asking == job) {
         m_asking = nullptr;
         emit clashChanged();

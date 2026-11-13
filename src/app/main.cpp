@@ -2,12 +2,15 @@
 // Copyright (C) 2026 Marc Mironescu
 
 #include "appwindow.h"
+#include "browser.h"
 #include "commandline.h"
 #include "uicheck.h"
 
 #include <QGuiApplication>
 
+#include <functional>
 #include <memory>
+#include <vector>
 
 int main(int argc, char *argv[])
 {
@@ -31,6 +34,18 @@ int main(int argc, char *argv[])
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    // File > New Window: another window on the same folder, with its own browser. Closing the
+    // last one quits.
+    std::vector<std::unique_ptr<AppWindow>> more;
+    std::function<void(Browser &)> offerNewWindows = [&](Browser &browser) {
+        QObject::connect(&browser, &Browser::newWindowAsked, &app, [&](const QString &folder) {
+            auto another = std::make_unique<AppWindow>();
+            offerNewWindows(another->browser());
+            another->load(folder);
+            more.push_back(std::move(another));
+        }, Qt::QueuedConnection);
+    };
+    offerNewWindows(window.browser());
     window.load(line.startLocation());
 
     if (check)

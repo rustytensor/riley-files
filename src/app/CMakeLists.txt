@@ -8,7 +8,12 @@
 # riley-files: the program people start. It reads the command line and shows one window.
 
 qt_add_library(riley-ui SHARED
-    browser.h browser.cpp
+    actions.h actions.cpp
+    browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp
+    chooser.h chooser.cpp
+    iconprovider.h iconprovider.cpp
+    panewidths.h panewidths.cpp
+    preferences.h preferences.cpp
     fileops.h fileops.cpp
     foldercolumn.h foldercolumn.cpp
     appwindow.h appwindow.cpp
@@ -41,6 +46,13 @@ set(rf_qml_files
     qml/ClashDialog.qml
     qml/DetailsPane.qml
     qml/PreviewOverlay.qml
+    qml/AppMenuBar.qml
+    qml/MenuPopups.qml
+    qml/ShortcutsOverlay.qml
+    qml/PaneDivider.qml
+    qml/PreferencesPanel.qml
+    qml/QuestionDialog.qml
+    qml/ChooserDialog.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.

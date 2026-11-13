@@ -247,6 +247,22 @@ void FolderModel::setPath(const QString &path)
     settle();
 }
 
+EntryOrder FolderModel::order() const
+{
+    EntryOrder order(m_sortKey);
+    order.setFoldersFirst(m_foldersFirst);
+    return order;
+}
+
+void FolderModel::setFoldersFirst(bool on)
+{
+    if (on == m_foldersFirst)
+        return;
+    m_foldersFirst = on;
+    relayout();
+    refreshLines();
+}
+
 void FolderModel::setSortKey(Sort key)
 {
     const SortKey wanted = SortKey(int(key));
@@ -581,8 +597,8 @@ void FolderModel::applyListing(quint64 generation, quint64 request, const QStrin
 
     Node *folder = folderNode(folderPath);
     if (folder) {
-        if (key != m_sortKey)
-            EntryOrder(m_sortKey).sort(result.entries);
+        if (key != m_sortKey || !m_foldersFirst)
+            order().sort(result.entries);
         if (folder == &m_root)
             setError(result.error);
         mergeChildren(folder, result.entries);
@@ -636,7 +652,7 @@ void FolderModel::mergeChildren(Node *folder, const QList<DirEntry> &entries)
     }
 
     // Still there: take the new size and time, and see whether the order still holds.
-    const EntryOrder order(m_sortKey);
+    const EntryOrder order = this->order();
     bool reorder = false;
     row = first;
     for (std::size_t i = 0; i < kids.size(); ++i) {
@@ -815,7 +831,7 @@ void FolderModel::relayout()
     for (const QModelIndex &idx : before)
         held.append(nodeAt(idx.row()));
 
-    sortChildren(&m_root, EntryOrder(m_sortKey));
+    sortChildren(&m_root, order());
     QList<Node *> rows;
     rows.reserve(m_rows.size());
     appendRows(&m_root, rows);

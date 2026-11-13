@@ -73,14 +73,19 @@ QtObject {
     property int tileWidth: 112
     property int tileHeight: 104
     property int tileIcon: 44
-    property int columnWidth: 240
-    property int sidebarWidth: 220
-    property int detailsWidth: 264
+    // The sidebar's, the details pane's and the columns' widths come from the browser
+    // (PaneWidths); this is how wide the grip on their dividers is.
+    property int dividerGrip: 7
     property int spacing: 12
     property int radius: 8
     property int stripHeight: 58
     property int buttonHeight: 32
     property int dialogWidth: 460
+    // The menu bar and its menus.
+    property int menuBarHeight: 28
+    property int menuWidth: 250
+    property int menuRowHeight: 26
+    property int menuPadding: 4
 
     property int fontSmall: 12
     property int fontNormal: 14

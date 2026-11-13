@@ -89,6 +89,8 @@ UiHarness::UiHarness()
     // Pinned folders (the GTK bookmarks file) and user-dirs.dirs come from this test's own
     // config folder, so no test reads or writes the user's.
     qputenv("XDG_CONFIG_HOME", m_scratch.filePath(QStringLiteral("config")).toUtf8());
+    // Custom icons, the trash and the user's applications live in this test's own data folder.
+    qputenv("XDG_DATA_HOME", m_scratch.filePath(QStringLiteral("data")).toUtf8());
 }
 
 UiHarness::~UiHarness()
@@ -114,7 +116,9 @@ QString UiHarness::root() const
 
 QString UiHarness::settingsFile() const
 {
-    return m_scratch.filePath(QStringLiteral("settings.ini"));
+    // Where the program keeps them: $XDG_CONFIG_HOME/riley-files/riley-files.conf, and
+    // XDG_CONFIG_HOME is this test's own config folder.
+    return m_scratch.filePath(QStringLiteral("config/riley-files/riley-files.conf"));
 }
 
 bool UiHarness::makeTreeFixture() const
@@ -139,7 +143,8 @@ bool UiHarness::start(const QStringList &arguments)
     stop();
     const CommandLine line = CommandLine::parse(QStringList{QStringLiteral("riley-files")} + arguments);
 
-    m_app = std::make_unique<AppWindow>(settingsFile());
+    // No settings file is named, so the window finds its own, as the program does.
+    m_app = std::make_unique<AppWindow>();
     QQmlApplicationEngine &engine = m_app->engine();
     engine.setOutputWarningsToStandardError(false);
     QObject::connect(&engine, &QQmlEngine::warnings, &engine, [](const QList<QQmlError> &list) {

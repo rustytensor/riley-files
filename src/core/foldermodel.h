@@ -100,6 +100,10 @@ public:
     bool showHidden() const { return m_showHidden; }
     void setShowHidden(bool show);
 
+    // Folders before files in every sort (the default); off, they are sorted with the files.
+    bool foldersFirst() const { return m_foldersFirst; }
+    void setFoldersFirst(bool on);
+
     // Why the folder could not be read; empty when it was.
     QString error() const { return m_error; }
     // True while any folder shown is being read.
@@ -212,6 +216,8 @@ private:
     QSet<QString> m_dirty;             // folders changed on disk, waiting for the debounce
 
     SortKey m_sortKey = SortKey::Name;
+    bool m_foldersFirst = true;
+    EntryOrder order() const;
     bool m_showHidden = false;
     QString m_error;
 

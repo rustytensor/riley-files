@@ -3,7 +3,7 @@
 
 import QtQuick
 
-// The main window: a header across the top, the sidebar on the left, the folder in the middle,
+// The main window: the menu bar and a header across the top, the sidebar on the left, the folder in the middle,
 // the details pane on the right when it is shown, and along the bottom the messages and the
 // progress of file operations. The preview, when open, lies over all of it. Every key goes to the
 // browser, which decides what it does; only a name being edited takes the typing.
@@ -30,15 +30,25 @@ Window {
             event.accepted = root.browser.handleKey(event.key, event.modifiers, event.text)
         }
 
+        AppMenuBar {
+            id: menuBar
+            actions: root.browser.actions
+            z: 2
+            height: implicitHeight
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+        }
+
         HeaderBar {
             id: header
             browser: root.browser
-            anchors { top: parent.top; left: parent.left; right: parent.right }
+            anchors { top: menuBar.bottom; left: parent.left; right: parent.right }
         }
 
         Sidebar {
             id: sidebar
             browser: root.browser
+            visible: root.browser.sidebarShown
+            width: visible ? implicitWidth : 0
             anchors { top: header.bottom; bottom: parent.bottom; left: parent.left }
         }
 
@@ -51,8 +61,26 @@ Window {
         }
 
         ContentArea {
+            id: content
             browser: root.browser
             anchors { top: header.bottom; bottom: bottomBars.top; left: sidebar.right; right: details.left }
+        }
+
+        // Each pane's edge drags its width; a double-click gives it back the chosen way's.
+        PaneDivider {
+            objectName: "sidebarDivider"
+            visible: sidebar.visible
+            panes: root.browser.panes
+            pane: "sidebar"
+            anchors { top: header.bottom; bottom: parent.bottom; horizontalCenter: sidebar.right }
+        }
+
+        PaneDivider {
+            objectName: "detailsDivider"
+            visible: details.visible
+            panes: root.browser.panes
+            pane: "details"
+            anchors { top: header.bottom; bottom: parent.bottom; horizontalCenter: details.left }
         }
 
         // Along the bottom, from the edge up: progress, messages, and the name editor of the
@@ -75,7 +103,9 @@ Window {
         Rectangle {
             id: bottomBars
             anchors { bottom: messages.top; left: sidebar.right; right: details.left }
-            visible: renameHere.visible
+            // From what the field needs, not from the field's own visibility: that is false while
+            // this bar is hidden, so the bar would never show again.
+            visible: renameHere.active && root.browser.ops.editing
             height: visible ? Theme.rowHeight + 16 : 0
             color: Theme.strip
 
@@ -108,7 +138,59 @@ Window {
             anchors.fill: parent
             ops: root.browser.ops
         }
+
+        ShortcutsOverlay {
+            anchors.fill: parent
+            browser: root.browser
+        }
+
+        PreferencesPanel {
+            anchors.fill: parent
+            browser: root.browser
+        }
+
+        QuestionDialog {
+            anchors.fill: parent
+            browser: root.browser
+        }
+
+        ChooserDialog {
+            anchors.fill: parent
+            browser: root.browser
+        }
+
+        // A click anywhere outside an open menu closes it. The menu bar stays above it, so its
+        // titles still switch between menus.
+        MouseArea {
+            anchors.fill: parent
+            z: 1
+            visible: root.browser.actions.menuOpen
+            acceptedButtons: Qt.AllButtons
+            onPressed: root.browser.actions.closeMenu()
+        }
+
+        MenuPopups {
+            anchors.fill: parent
+            z: 3
+            actions: root.browser.actions
+            menuBar: menuBar
+            keyboardPoint: Qt.point(content.x + content.width / 3, content.y + Theme.rowHeight * 2)
+        }
     }
+
+    // The proportional pane widths follow the window's width.
+    Binding {
+        target: root.browser.panes
+        property: "windowWidth"
+        value: root.width
+    }
+
+    // The automatic pane widths measure names in the rows' font, with what else a row holds:
+    // a sidebar row its margins and icon, a column row its margins, icon and folder mark.
+    Component.onCompleted: root.browser.panes.setRowFont(
+        Qt.font({ pixelSize: Theme.fontNormal }),
+        Math.ceil(Theme.spacing * 3.75 + 16 + 1),
+        Math.ceil(Theme.spacing * 3.25 + Theme.iconSize + 10))
 
     // Once a name is no longer edited, the keys go back to the browser.
     Connections {
@@ -117,5 +199,21 @@ Window {
             if (!root.browser.ops.editing)
                 keys.forceActiveFocus()
         }
+    }
+    Connections {
+        target: root.browser
+        function onLocationEditingChanged() {
+            if (!root.browser.locationEditing)
+                keys.forceActiveFocus()
+        }
+        function onCloseWindowAsked() { root.close() }
+    }
+    Connections {
+        target: root.browser.prefs
+        function onEditingChanged() {
+            if (root.browser.prefs.editing < 0)
+                keys.forceActiveFocus()
+        }
+        function onShownChanged() { keys.forceActiveFocus() }
     }
 }

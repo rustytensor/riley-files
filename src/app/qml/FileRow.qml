@@ -38,7 +38,7 @@ Rectangle {
     }
 
     TreeGuide {
-        visible: row.browser.tree && row.depth > 0
+        visible: row.browser.tree && row.depth > 0 && row.browser.prefs.treeLines
         x: Theme.spacing * 1.5
         height: parent.height
         lines: row.lines
@@ -71,6 +71,7 @@ Rectangle {
         x: row.textLeft
         anchors.verticalCenter: parent.verticalCenter
         category: row.category
+        customSource: row.browser.customIconSource(row.path, row.browser.iconsRevision)
         opacity: row.hidden ? 0.55 : 1
         visible: !thumbnail.shown
     }
@@ -83,7 +84,8 @@ Rectangle {
         readonly property bool shown: status === Image.Ready && implicitWidth > 0
 
         anchors.fill: icon
-        source: row.browser.thumbnailSource(row.path, row.isDir, row.modified)
+        // A chosen icon is shown instead of the thumbnail.
+        source: icon.customSource.length > 0 ? "" : row.browser.thumbnailSource(row.path, row.isDir, row.modified)
         sourceSize { width: Theme.iconSize * 2; height: Theme.iconSize * 2 }
         asynchronous: true
         fillMode: Image.PreserveAspectFit
@@ -129,7 +131,7 @@ Rectangle {
         id: mouse
         anchors { fill: parent; leftMargin: disclosure.visible ? disclosure.x + disclosure.width : 0 }
         hoverEnabled: true
-        onClicked: row.browser.cursor = row.index
-        onDoubleClicked: row.browser.activate(row.index)
+        onClicked: row.browser.clickRow(row.index)
+        onDoubleClicked: row.browser.doubleClickRow(row.index)
     }
 }

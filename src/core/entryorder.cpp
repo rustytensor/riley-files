@@ -30,7 +30,7 @@ QStringView EntryOrder::extensionOf(QStringView name)
 
 bool EntryOrder::lessThan(const DirEntry &a, const DirEntry &b) const
 {
-    if (a.isDir != b.isDir)
+    if (m_foldersFirst && a.isDir != b.isDir)
         return a.isDir;
 
     switch (m_key) {
@@ -44,13 +44,14 @@ bool EntryOrder::lessThan(const DirEntry &a, const DirEntry &b) const
         if (a.modified != b.modified)
             return a.modified > b.modified;
         break;
-    case SortKey::Kind:
-        if (!a.isDir) {
-            if (const int byKind = m_collator.compare(extensionOf(a.name), extensionOf(b.name));
-                byKind != 0)
-                return byKind < 0;
-        }
+    case SortKey::Kind: {
+        // A folder has no kind; mixed in with the files, it sorts as having none.
+        const QStringView kindA = a.isDir ? QStringView() : extensionOf(a.name);
+        const QStringView kindB = b.isDir ? QStringView() : extensionOf(b.name);
+        if (const int byKind = m_collator.compare(kindA, kindB); byKind != 0)
+            return byKind < 0;
         break;
+    }
     }
     return nameLess(a, b);
 }

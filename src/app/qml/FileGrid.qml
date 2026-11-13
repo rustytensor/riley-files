@@ -19,8 +19,9 @@ Item {
         anchors { fill: parent; leftMargin: Theme.spacing; topMargin: Theme.spacing / 2 }
         clip: true
         model: grid.browser.model
-        cellWidth: Theme.tileWidth
-        cellHeight: Theme.tileHeight
+        // Larger thumbnails (Preferences) make larger tiles.
+        cellWidth: Math.max(Theme.tileWidth, grid.browser.prefs.thumbnailSize + 68)
+        cellHeight: Theme.tileHeight - Theme.tileIcon + grid.browser.prefs.thumbnailSize
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
         // The browser moves the cursor; the view only follows it.
@@ -49,6 +50,8 @@ Item {
         onCurrentIndexChanged: if (currentIndex !== grid.browser.cursor) currentIndex = grid.browser.cursor
         onWidthChanged: tellSize()
         onHeightChanged: tellSize()
+        onCellWidthChanged: tellSize()
+        onCellHeightChanged: tellSize()
         Component.onCompleted: {
             tellSize()
             followCursor()
@@ -57,6 +60,19 @@ Item {
         Connections {
             target: grid.browser
             function onCursorChanged() { view.followCursor() }
+        }
+    }
+
+    // A right click opens the context menu: for the row under it, or for the folder when it
+    // is on the empty space around the rows. Other buttons go on to the rows below.
+    MouseArea {
+        objectName: "gridContextArea"
+        anchors.fill: view
+        acceptedButtons: Qt.RightButton
+        onPressed: mouse => {
+            const row = view.indexAt(mouse.x + view.contentX, mouse.y + view.contentY)
+            const at = mapToItem(null, mouse.x, mouse.y)
+            grid.browser.contextMenuAt(row, at.x, at.y)
         }
     }
 

@@ -3,12 +3,18 @@
 
 #pragma once
 
+#include "actions.h"
+#include "chooser.h"
+#include "customicons.h"
 #include "details.h"
 #include "fileops.h"
 #include "foldercolumn.h"
+#include "desktopentry.h"
 #include "foldermodel.h"
+#include "panewidths.h"
 #include "pinnedfolders.h"
 #include "places.h"
+#include "preferences.h"
 #include "preview.h"
 
 #include <QDateTime>
@@ -18,6 +24,7 @@
 #include <QString>
 #include <QtQmlIntegration/qqmlintegration.h>
 
+#include <functional>
 #include <memory>
 
 class QSettings;
@@ -65,14 +72,40 @@ class Browser : public QObject
     // The preview overlay (Space).
     Q_PROPERTY(Preview *preview READ preview CONSTANT)
 
+    // Every command, its key and the menus that hold it (see Actions).
+    Q_PROPERTY(Actions *actions READ actions CONSTANT)
+    // The sidebar can be hidden (F9).
+    Q_PROPERTY(bool sidebarShown READ sidebarShown WRITE setSidebarShown NOTIFY sidebarShownChanged)
+    // The folder's path being typed in the header (Ctrl+L).
+    Q_PROPERTY(bool locationEditing READ locationEditing NOTIFY locationEditingChanged)
+    // The list of every action and its key, over the window (F1).
+    Q_PROPERTY(bool shortcutsShown READ shortcutsShown WRITE setShortcutsShown NOTIFY shortcutsShownChanged)
+    // How the panes get their widths: "fixed", "automatic" or "proportional".
+    Q_PROPERTY(QString paneWidths READ paneWidths WRITE setPaneWidths NOTIFY paneWidthsChanged)
+    // The widths themselves, and the dividers that drag them.
+    Q_PROPERTY(PaneWidths *panes READ panes CONSTANT)
+    // The Preferences panel (Ctrl+,) and the options it sets.
+    Q_PROPERTY(Preferences *prefs READ prefs CONSTANT)
+    // A question before something is done (moving to the trash, when the person asked for it):
+    // its text, or empty when none is asked. Return says yes, Escape no.
+    Q_PROPERTY(QString question READ question NOTIFY questionChanged)
+    // The searchable list in front of the window: an icon (Change Icon) or an application
+    // (Open With > Other Application).
+    Q_PROPERTY(Chooser *chooser READ chooser CONSTANT)
+    // Goes up by one whenever a chosen icon changes; the rows pass it to customIconSource() so
+    // they ask again.
+    Q_PROPERTY(int iconsRevision READ iconsRevision NOTIFY iconsChanged)
+
 public:
     enum View { List, Grid, Columns };
     Q_ENUM(View)
 
-    // Reads and keeps its choices in `settingsFile` (an INI file), or in the user's usual
-    // settings for the program when it is empty.
+    // Reads and keeps its choices in `settingsFile` (an INI file), or when it is empty in
+    // $XDG_CONFIG_HOME/riley-files/riley-files.conf (see defaultSettingsFile()).
     explicit Browser(const QString &settingsFile = QString(), QObject *parent = nullptr);
     ~Browser() override;
+
+    static QString defaultSettingsFile();
 
     QString folder() const { return m_model->path(); }
     QString folderName() const;
@@ -101,6 +134,53 @@ public:
     Preview *preview() const { return m_preview.get(); }
     // The path the keys are on: the row under the active cursor, or else the folder shown.
     QString focusPath() const;
+
+    Actions *actions() const { return m_actions.get(); }
+    bool sidebarShown() const { return m_sidebarShown; }
+    void setSidebarShown(bool shown);
+    bool locationEditing() const { return m_locationEditing; }
+    // Opens what was typed in the header: a folder, or a file's folder with the cursor on it;
+    // "~" is the home folder and a relative path starts at the folder shown.
+    Q_INVOKABLE void openTypedLocation(const QString &text);
+    Q_INVOKABLE void cancelLocation();
+    bool shortcutsShown() const { return m_shortcutsShown; }
+    void setShortcutsShown(bool shown);
+    QString paneWidths() const { return m_paneWidths; }
+    void setPaneWidths(const QString &mode);
+    PaneWidths *panes() const { return m_panes.get(); }
+    Preferences *prefs() const { return m_prefs.get(); }
+    QString question() const { return m_question; }
+    // Answers the question asked: yes does what it was about.
+    Q_INVOKABLE void answer(bool yes);
+
+    Chooser *chooser() const { return m_chooser.get(); }
+    int iconsRevision() const { return m_iconsRevision; }
+    // The icon chosen for `path` (a theme icon's name or an image file), or empty; and the
+    // Image source that shows it, or empty. `revision` is iconsRevision, for the binding.
+    QString customIcon(const QString &path) const;
+    Q_INVOKABLE QString customIconSource(const QString &path, int revision = 0) const;
+    // Change Icon: the chooser of theme icons (or an image file's path, typed) for `path`.
+    void changeIcon(const QString &path);
+    // Reset Icon: `path` gets its usual icon again.
+    void resetIcon(const QString &path);
+
+    // Opens files with their default application (the first one for their type).
+    void openFiles(const QStringList &paths);
+
+    // A click on a row of a view, and a double-click: the cursor goes there, and the row opens
+    // on a double-click, or on one click when the Preferences say so.
+    Q_INVOKABLE void clickRow(int row);
+    Q_INVOKABLE void doubleClickRow(int row);
+
+    // The context menu for a row of the folder shown (it gets the cursor) or, for row -1, for
+    // the empty space around the rows. `x` and `y` are where it opens, in the window.
+    Q_INVOKABLE void contextMenuAt(int row, qreal x, qreal y);
+    // The context menu from the keyboard (the Menu key, Shift+F10): for the row under the
+    // cursor, or for the folder when there is none.
+    void contextMenuFromKeys();
+    // The row under the active cursor, as Return opens it: a folder is shown, a file is opened
+    // with its default application.
+    void openUnderCursor();
 
     // The row the keys act on; -1 when the folder has no rows (yet).
     int cursor() const { return m_cursor; }
@@ -147,7 +227,7 @@ public:
     Q_INVOKABLE void goForward();
     // The folder that holds this one, with the cursor on the folder just left.
     Q_INVOKABLE void goUp();
-    // Opens the folder under the cursor; for a file, does nothing yet.
+    // Opens the row: a folder is shown, a file opened with its default application.
     Q_INVOKABLE void activate(int row);
 
     // The Image source of a row's thumbnail, or empty for a folder (folders keep their icon).
@@ -179,6 +259,17 @@ signals:
     void activeColumnChanged();
     void sidebarChanged();
     void detailsShownChanged();
+    void sidebarShownChanged();
+    void locationEditingChanged();
+    void shortcutsShownChanged();
+    void paneWidthsChanged();
+    void questionChanged();
+    void iconsChanged();
+
+    // Asks for what the window, not the browser, does: another window on `folder`, and closing
+    // this one.
+    void newWindowAsked(const QString &folder);
+    void closeWindowAsked();
 
 private:
     struct Step
@@ -210,7 +301,27 @@ private:
     bool treeRight();
     bool treeLeft();
     bool typeToFind(const QString &text);
-    bool fileKey(int key, Qt::KeyboardModifiers mods);
+    // Registers every command with its key and builds the menus (browseractions.cpp).
+    void addActions();
+    // Registers every option of the Preferences and what each changes (browserprefs.cpp).
+    void addPreferences();
+    void applyPreference(const QString &id, const QString &value);
+    // Open With: the applications for the file under the cursor, the default first, then
+    // Always Use for This Type and Other Application (browserapps.cpp).
+    QList<Actions::Entry> openWithEntries();
+    void launch(const Riley::DesktopEntry &app, const QStringList &paths);
+    void chooseOtherApp(const QStringList &paths);
+    // Moves the targets to the trash, after asking when the Preferences say so.
+    void trashTargets();
+    void ask(const QString &text, std::function<void()> yes);
+    // The automatic pane widths measure the rows' names.
+    void measureSidebar();
+    void measureColumns();
+    void setSortKey(Riley::FolderModel::Sort key);
+    void editLocation();
+    void showAbout();
+    bool shortcutsKey(int key, Qt::KeyboardModifiers mods);
+    bool questionKey(int key, Qt::KeyboardModifiers mods);
     bool landAim();
     bool sidebarKey(int key, Qt::KeyboardModifiers mods);
     bool previewKey(int key, Qt::KeyboardModifiers mods);
@@ -253,4 +364,17 @@ private:
     std::unique_ptr<Preview> m_preview;
     bool m_detailsShown = false;
     QString m_followed; // the path the details and preview were last pointed at
+
+    std::unique_ptr<Actions> m_actions;
+    bool m_sidebarShown = true;
+    bool m_locationEditing = false;
+    bool m_shortcutsShown = false;
+    QString m_paneWidths = QStringLiteral("fixed");
+    std::unique_ptr<PaneWidths> m_panes;
+    std::unique_ptr<Preferences> m_prefs;
+    QString m_question;
+    std::function<void()> m_onYes;
+    std::unique_ptr<Riley::CustomIcons> m_icons;
+    std::unique_ptr<Chooser> m_chooser;
+    int m_iconsRevision = 0;
 };

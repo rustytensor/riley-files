@@ -14,7 +14,7 @@ Rectangle {
 
     required property Browser browser
 
-    implicitWidth: Theme.sidebarWidth
+    implicitWidth: browser.panes.sidebar
     color: Theme.sidebar
 
     component Heading: Text {

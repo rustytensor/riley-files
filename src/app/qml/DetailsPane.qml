@@ -14,7 +14,7 @@ Rectangle {
     required property Browser browser
     readonly property FileDetails details: browser.details
 
-    implicitWidth: Theme.detailsWidth
+    implicitWidth: browser.panes.details
     color: Theme.sidebar
     clip: true
 

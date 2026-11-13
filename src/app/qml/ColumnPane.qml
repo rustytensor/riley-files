@@ -15,7 +15,7 @@ Item {
 
     readonly property bool active: browser.activeColumn === index
 
-    width: Theme.columnWidth
+    width: browser.panes.column
 
     ListView {
         id: view
@@ -68,5 +68,12 @@ Item {
         anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
         width: 1
         color: Theme.divider
+    }
+
+    PaneDivider {
+        objectName: "columnDivider" + (pane.index + 1)
+        panes: pane.browser.panes
+        pane: "column"
+        anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
     }
 }

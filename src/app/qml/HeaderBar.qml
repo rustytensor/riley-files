@@ -52,6 +52,7 @@ Rectangle {
 
     Text {
         id: title
+        visible: !bar.browser.locationEditing
         anchors { left: nav.right; leftMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
         text: bar.browser.folderName.length > 0 ? bar.browser.folderName : "Files"
         color: Theme.text
@@ -65,10 +66,63 @@ Rectangle {
             right: tools.left; rightMargin: Theme.spacing
             baseline: title.baseline
         }
+        visible: !bar.browser.locationEditing
         text: bar.browser.folder
         color: Theme.textFaint
         font.pixelSize: Theme.fontSmall
         elide: Text.ElideMiddle
+    }
+
+    // The folder's path, typed (Ctrl+L). Return opens it, Escape leaves the folder as it is.
+    Rectangle {
+        id: locationBox
+        visible: bar.browser.locationEditing
+        anchors {
+            left: nav.right; leftMargin: Theme.spacing
+            right: tools.left; rightMargin: Theme.spacing
+            verticalCenter: parent.verticalCenter
+        }
+        height: Theme.rowHeight
+        radius: 4
+        color: Theme.field
+        border.color: Theme.accent
+        border.width: 1
+
+        onVisibleChanged: {
+            if (visible) {
+                location.text = bar.browser.folder
+                location.selectAll()
+                location.forceActiveFocus()
+            }
+        }
+
+        TextInput {
+            id: location
+            objectName: "location"
+
+            anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
+            verticalAlignment: TextInput.AlignVCenter
+            clip: true
+            color: Theme.text
+            selectionColor: Theme.selection
+            selectedTextColor: Theme.text
+            font.pixelSize: Theme.fontNormal
+            selectByMouse: true
+
+            Keys.onReturnPressed: event => {
+                bar.browser.openTypedLocation(text)
+                event.accepted = true
+            }
+            Keys.onEnterPressed: event => {
+                bar.browser.openTypedLocation(text)
+                event.accepted = true
+            }
+            Keys.onEscapePressed: event => {
+                bar.browser.cancelLocation()
+                event.accepted = true
+            }
+            onActiveFocusChanged: if (!activeFocus && locationBox.visible) bar.browser.cancelLocation()
+        }
     }
 
     // On the right: the details pane's switch (Ctrl+I), lit while the pane is shown.
