@@ -69,6 +69,10 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     , m_ops(std::make_unique<FileOps>())
     , m_places(std::make_unique<Riley::PlacesModel>())
     , m_pinned(std::make_unique<Riley::PinnedModel>())
+    , m_drives(std::make_unique<Riley::DrivesModel>())
+    , m_network(std::make_unique<Riley::NetworkModel>())
+    , m_trash(std::make_unique<Riley::TrashModel>())
+    , m_recent(std::make_unique<Riley::RecentFiles>())
     , m_details(std::make_unique<FileDetails>())
     , m_preview(std::make_unique<Preview>())
     , m_actions(std::make_unique<Actions>())
@@ -132,6 +136,22 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     connect(m_pinned.get(), &QAbstractItemModel::rowsInserted, this, sidebarRows);
     connect(m_pinned.get(), &QAbstractItemModel::rowsRemoved, this, sidebarRows);
     connect(m_pinned.get(), &Riley::PinnedModel::countChanged, this, sidebarRows);
+    connect(m_drives.get(), &QAbstractItemModel::modelReset, this, sidebarRows);
+    connect(m_drives.get(), &Riley::DrivesModel::ejectFinished, this,
+            [this](const QString &, bool, const QString &message) { m_ops->say(message); });
+    connect(m_network.get(), &QAbstractItemModel::modelReset, this, sidebarRows);
+    connect(m_network.get(), &Riley::NetworkModel::connectFinished, this,
+            [this](const QString &, bool, const QString &message) { m_ops->say(message); });
+
+    // The trash view reads the trashes again after every file operation, and the rows it
+    // shows keep their cursor.
+    connect(&m_ops->queue(), &Riley::JobQueue::jobFinished, this, [this] {
+        if (m_place == QLatin1String("trash"))
+            reloadTrash();
+    });
+    for (QAbstractItemModel *list : {static_cast<QAbstractItemModel *>(m_trash.get()),
+                                     static_cast<QAbstractItemModel *>(m_recent.get())})
+        connect(list, &QAbstractItemModel::modelReset, this, &Browser::followPlaceRows);
 
     // The details and the preview follow the cursor, through every change to the rows.
     connect(this, &Browser::cursorChanged, this, &Browser::followFocus);
@@ -155,6 +175,8 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     connect(m_pinned.get(), &QAbstractItemModel::modelReset, this, &Browser::measureSidebar);
     connect(m_pinned.get(), &QAbstractItemModel::rowsInserted, this, &Browser::measureSidebar);
     connect(m_pinned.get(), &QAbstractItemModel::rowsRemoved, this, &Browser::measureSidebar);
+    connect(m_drives.get(), &QAbstractItemModel::modelReset, this, &Browser::measureSidebar);
+    connect(m_network.get(), &QAbstractItemModel::modelReset, this, &Browser::measureSidebar);
     connect(model, &FolderModel::loaded, this, &Browser::measureColumns);
     connect(this, &Browser::columnsChanged, this, &Browser::measureColumns);
     connect(this, &Browser::viewChanged, this, &Browser::measureColumns);
@@ -182,6 +204,10 @@ Browser::~Browser() = default;
 
 QString Browser::folderName() const
 {
+    if (m_place == QLatin1String("trash"))
+        return QStringLiteral("Trash");
+    if (m_place == QLatin1String("recent"))
+        return QStringLiteral("Recent");
     const QString path = folder();
     if (path == QLatin1String("/"))
         return path;
@@ -327,6 +353,13 @@ void Browser::open(const QString &path, const QString &cursorOn)
     const QString target = clean(path);
     if (target.isEmpty())
         return;
+    // The trash's own folder is shown as the trash view, with every trash in it.
+    if (target == trashPlacePath()) {
+        showTrash();
+        return;
+    }
+    if (target == folder() && !m_place.isEmpty())
+        leavePlace();
     if (target == folder()) {
         const int row = cursorOn.isEmpty() ? -1 : m_model->rowOfPath(cursorOn);
         if (row >= 0)
@@ -345,6 +378,11 @@ void Browser::open(const QString &path, const QString &cursorOn)
 
 void Browser::goBack()
 {
+    // Back from the trash view or the recent files is the folder they were shown over.
+    if (!m_place.isEmpty()) {
+        leavePlace();
+        return;
+    }
     if (!canGoBack())
         return;
     rememberCursor();
@@ -396,6 +434,12 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
         return m_actions->menuKey(key, mods);
     if (!m_question.isEmpty())
         return questionKey(key, mods);
+    // The Connect to Server field takes its own typing; the other keys wait until it closes.
+    if (m_connectShown) {
+        if (key == Qt::Key_Escape)
+            cancelConnect();
+        return true;
+    }
     if (m_chooser->shown())
         return m_chooser->key(key, mods, text);
     if (m_shortcutsShown)
@@ -417,6 +461,25 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
         }
         const QString id = m_actions->idForKey(key, mods);
         if (!id.isEmpty() && searchAllows(id))
+            m_actions->trigger(id);
+        return true;
+    }
+    // The trash view and the recent files take the keys the same way.
+    if (!m_place.isEmpty()) {
+        if (key == Qt::Key_F10 && mods == Qt::NoModifier) {
+            m_actions->openBarMenu(0);
+            return true;
+        }
+        if ((key == Qt::Key_Tab && mods == Qt::NoModifier) || key == Qt::Key_Backtab) {
+            setSidebarFocus(!m_sidebarFocus);
+            return true;
+        }
+        if (m_sidebarFocus && sidebarKey(key, mods))
+            return true;
+        if (placeKey(key, mods))
+            return true;
+        const QString id = m_actions->idForKey(key, mods);
+        if (!id.isEmpty() && placeAllows(id))
             m_actions->trigger(id);
         return true;
     }
@@ -470,8 +533,9 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
 
 void Browser::show(const QString &path, const QString &cursorOn)
 {
-    // Going anywhere ends a search.
+    // Going anywhere ends a search, and leaves the trash view or the recent files.
     closeSearch();
+    setPlace(QString());
     m_aimPath.clear();
     m_ops->cancelRename();
     m_cursorPath = cursorOn;
@@ -885,12 +949,14 @@ QString Browser::thumbnailSource(const QString &path, bool isDir, const QDateTim
 
 int Browser::markedPlace() const
 {
-    return m_places->rowOf(folder());
+    if (m_place == QLatin1String("trash"))
+        return m_places->rowOf(trashPlacePath());
+    return m_place.isEmpty() ? m_places->rowOf(folder()) : -1;
 }
 
 int Browser::markedPin() const
 {
-    return m_pinned->rowOf(folder());
+    return m_place.isEmpty() ? m_pinned->rowOf(folder()) : -1;
 }
 
 bool Browser::folderPinned() const
@@ -898,9 +964,41 @@ bool Browser::folderPinned() const
     return !folder().isEmpty() && m_pinned->isPinned(folder());
 }
 
+int Browser::sidebarRowCount() const
+{
+    return networkSidebarRow() + m_network->count();
+}
+
+int Browser::recentSidebarRow() const
+{
+    return m_places->count() + m_pinned->count();
+}
+
+int Browser::networkSidebarRow() const
+{
+    return drivesSidebarRow() + m_drives->count();
+}
+
+int Browser::markedDrive() const
+{
+    return m_place.isEmpty() ? m_drives->rowOf(folder()) : -1;
+}
+
+int Browser::markedNetwork() const
+{
+    return m_place.isEmpty() ? m_network->rowOf(folder()) : -1;
+}
+
+void Browser::ejectDrive(int row)
+{
+    QString why;
+    if (!m_drives->eject(row, &why))
+        m_ops->say(why);
+}
+
 void Browser::setSidebarCursor(int row)
 {
-    const int rows = m_places->count() + m_pinned->count();
+    const int rows = sidebarRowCount();
     row = rows == 0 ? 0 : std::clamp(row, 0, rows - 1);
     if (row == m_sidebarCursor)
         return;
@@ -910,7 +1008,7 @@ void Browser::setSidebarCursor(int row)
 
 void Browser::setSidebarFocus(bool on)
 {
-    if (on && (!m_sidebarShown || m_places->count() + m_pinned->count() == 0))
+    if (on && (!m_sidebarShown || sidebarRowCount() == 0))
         on = false;
     if (on == m_sidebarFocus)
         return;
@@ -919,10 +1017,18 @@ void Browser::setSidebarFocus(bool on)
         // The cursor starts on the place shown, when there is one.
         const int place = markedPlace();
         const int pin = markedPin();
+        const int drive = markedDrive();
+        const int server = markedNetwork();
         if (place >= 0)
             m_sidebarCursor = place;
         else if (pin >= 0)
             m_sidebarCursor = m_places->count() + pin;
+        else if (markedRecent())
+            m_sidebarCursor = recentSidebarRow();
+        else if (drive >= 0)
+            m_sidebarCursor = drivesSidebarRow() + drive;
+        else if (server >= 0)
+            m_sidebarCursor = networkSidebarRow() + server;
         setSidebarCursor(m_sidebarCursor);
     }
     emit sidebarChanged();
@@ -931,17 +1037,33 @@ void Browser::setSidebarFocus(bool on)
 void Browser::openSidebarRow(int row)
 {
     const int places = m_places->count();
-    const QString path = row < places ? m_places->pathAt(row) : m_pinned->pathAt(row - places);
+    const int pins = m_pinned->count();
+    if (row == recentSidebarRow()) {
+        setSidebarCursor(row);
+        setSidebarFocus(false);
+        showRecent();
+        return;
+    }
+    const QString path = row < places               ? m_places->pathAt(row)
+                         : row < places + pins      ? m_pinned->pathAt(row - places)
+                         : row < networkSidebarRow() ? m_drives->pathAt(row - drivesSidebarRow())
+                                                     : m_network->pathAt(row - networkSidebarRow());
     if (path.isEmpty())
         return;
     setSidebarCursor(row);
     setSidebarFocus(false);
+    if (clean(path) == trashPlacePath()) {
+        showTrash();
+        return;
+    }
     if (!QFileInfo(path).isDir()) {
         m_ops->say(QStringLiteral("“%1” is not there any more.").arg(QFileInfo(path).fileName()));
         return;
     }
     if (clean(path) != folder())
         open(path);
+    else
+        leavePlace();
 }
 
 void Browser::togglePin()
@@ -965,7 +1087,7 @@ bool Browser::sidebarKey(int key, Qt::KeyboardModifiers mods)
 {
     if (mods != Qt::NoModifier)
         return false;
-    const int rows = m_places->count() + m_pinned->count();
+    const int rows = sidebarRowCount();
     switch (key) {
     case Qt::Key_Up:
         setSidebarCursor(m_sidebarCursor - 1);

@@ -105,3 +105,27 @@ target_link_libraries(searchui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME searchui_tests COMMAND searchui_tests)
 set_tests_properties(searchui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Drives on real files: the drives read from a mountinfo file and watched, and a file on another
+# file system than the home folder trashed to that drive's own trash and put back.
+add_executable(drives_tests drives_tests.cpp)
+target_link_libraries(drives_tests PRIVATE riley-core riley_warnings Qt6::Test)
+
+add_test(NAME drives_tests COMMAND drives_tests)
+set_tests_properties(drives_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Drives in the window: the eject mark in the sidebar running udisksctl with an argument list.
+add_executable(drivesui_tests drivesui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(drivesui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME drivesui_tests COMMAND drivesui_tests)
+set_tests_properties(drivesui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The places that are not folders, in the window: the trash view with Restore, Delete for Good
+# and Empty Trash, the recent files of recently-used.xbel, Connect to Server and the Network
+# section, and the sidebar's sections that show only when they have something.
+add_executable(placesui_tests placesui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(placesui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME placesui_tests COMMAND placesui_tests)
+set_tests_properties(placesui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

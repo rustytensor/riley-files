@@ -3,10 +3,14 @@
 
 #pragma once
 
+#include "drives.h"
 #include "filesearch.h"
 #include "foldermodel.h"
+#include "networkplaces.h"
 #include "pinnedfolders.h"
 #include "places.h"
+#include "recentfiles.h"
+#include "trashmodel.h"
 
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -41,4 +45,36 @@ struct FileSearchForeign
     QML_FOREIGN(Riley::FileSearch)
     QML_NAMED_ELEMENT(FileSearch)
     QML_UNCREATABLE("The search is made by the program.")
+};
+
+struct DrivesModelForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::DrivesModel)
+    QML_NAMED_ELEMENT(DrivesModel)
+    QML_UNCREATABLE("The drives are made by the program.")
+};
+
+struct NetworkModelForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::NetworkModel)
+    QML_NAMED_ELEMENT(NetworkModel)
+    QML_UNCREATABLE("The network places are made by the program.")
+};
+
+struct TrashModelForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::TrashModel)
+    QML_NAMED_ELEMENT(TrashModel)
+    QML_UNCREATABLE("The trash view's rows are made by the program.")
+};
+
+struct RecentFilesForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::RecentFiles)
+    QML_NAMED_ELEMENT(RecentFiles)
+    QML_UNCREATABLE("The recent files are made by the program.")
 };

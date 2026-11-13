@@ -17,13 +17,13 @@ Rectangle {
     FileList {
         anchors.fill: parent
         browser: area.browser
-        visible: area.browser.view === Browser.List && !area.browser.searchShown
+        visible: area.browser.view === Browser.List && !area.browser.searchShown && area.browser.place.length === 0
     }
 
     Loader {
         anchors.fill: parent
         active: area.browser.view === Browser.Grid
-        visible: !area.browser.searchShown
+        visible: !area.browser.searchShown && area.browser.place.length === 0
         sourceComponent: Component {
             FileGrid { browser: area.browser }
         }
@@ -32,9 +32,26 @@ Rectangle {
     Loader {
         anchors.fill: parent
         active: area.browser.view === Browser.Columns
-        visible: !area.browser.searchShown
+        visible: !area.browser.searchShown && area.browser.place.length === 0
         sourceComponent: Component {
             ColumnsView { browser: area.browser }
+        }
+    }
+
+    // The trash and the recent files, in the folder's place.
+    Loader {
+        anchors.fill: parent
+        active: area.browser.place === "trash" && !area.browser.searchShown
+        sourceComponent: Component {
+            TrashView { browser: area.browser }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: area.browser.place === "recent" && !area.browser.searchShown
+        sourceComponent: Component {
+            RecentView { browser: area.browser }
         }
     }
 

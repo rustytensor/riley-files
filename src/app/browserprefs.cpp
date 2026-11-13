@@ -150,6 +150,9 @@ void Browser::measureSidebar()
 {
     QStringList names = namesOf(*m_places, Riley::PlacesModel::NameRole);
     names += namesOf(*m_pinned, Riley::PinnedModel::NameRole);
+    names += namesOf(*m_drives, Riley::DrivesModel::NameRole);
+    names += namesOf(*m_network, Riley::NetworkModel::NameRole);
+    names.append(QStringLiteral("Recent"));
     m_panes->measure(PaneWidths::Sidebar, names);
 }
 

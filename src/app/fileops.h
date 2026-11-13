@@ -73,6 +73,11 @@ public:
     // False when it holds no local files.
     bool paste(const QString &folder);
     void trash(const QStringList &paths);
+    // Puts things from a trash (paths in a trash's files/) back where they came from; a taken
+    // name is asked about, as a paste's is.
+    void restore(const QStringList &trashedPaths);
+    // Deletes for good, after the person was asked; things in a trash lose their info file too.
+    void deleteForGood(const QStringList &paths);
     void newFolder(const QString &folder);
     void undo();
     void redo();

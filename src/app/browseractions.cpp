@@ -53,6 +53,18 @@ void Browser::addActions()
            [this] { m_ops->startRename(activeModel()->pathAt(activeCursor())); }, hasRow, {}});
     a.add({u"trash"_s, u"Move to Trash"_s, key(Qt::Key_Delete), {},
            [this] { trashTargets(); }, hasTarget, {}});
+    // Deleting for good is asked first, always; in the trash view it is the thing chosen there.
+    a.add({u"delete-for-good"_s, u"Delete for Good"_s, key(Qt::Key_Delete, Qt::ShiftModifier), {},
+           [this] { deleteTargetsForGood(); },
+           [this] {
+               return m_place == QLatin1String("trash") ? m_placeRow >= 0
+                                                        : m_place.isEmpty() && !targetPaths().isEmpty();
+           },
+           {}});
+    a.add({u"restore"_s, u"Restore from Trash"_s, {}, {}, [this] { restoreRow(m_placeRow); },
+           [this] { return m_place == QLatin1String("trash") && m_placeRow >= 0; }, {}});
+    a.add({u"empty-trash"_s, u"Empty Trash"_s, {}, {}, [this] { emptyTrash(); }, {}, {}});
+    a.add({u"connect"_s, u"Connect to Server"_s, {}, {}, [this] { openConnect(); }, {}, {}});
     a.add({u"change-icon"_s, u"Change Icon"_s, {}, {},
            [this] { changeIcon(activeModel()->pathAt(activeCursor())); }, hasRow, {}});
     a.add({u"reset-icon"_s, u"Reset Icon"_s, {}, {},
@@ -119,16 +131,27 @@ void Browser::addActions()
     a.add({u"panes-automatic"_s, u"Automatic"_s, {}, {}, panes(u"automatic"_s), {}, isPanes(u"automatic"_s)});
     a.add({u"panes-proportional"_s, u"Proportional"_s, {}, {}, panes(u"proportional"_s), {},
            isPanes(u"proportional"_s)});
-    a.add({u"reload"_s, u"Reload"_s, key(Qt::Key_R, ctrl), {}, [this] { m_model->reload(); }, {}, {}});
+    a.add({u"reload"_s, u"Reload"_s, key(Qt::Key_R, ctrl), {},
+           [this] {
+               if (m_place == QLatin1String("trash"))
+                   reloadTrash();
+               else if (m_place == QLatin1String("recent"))
+                   m_recent->reload();
+               else
+                   m_model->reload();
+           },
+           {}, {}});
 
     // Go
     a.add({u"back"_s, u"Back"_s, key(Qt::Key_Left, alt), {key(Qt::Key_Back)}, [this] { goBack(); },
-           [this] { return canGoBack(); }, {}});
+           [this] { return canGoBack() || !m_place.isEmpty(); }, {}});
     a.add({u"forward"_s, u"Forward"_s, key(Qt::Key_Right, alt), {key(Qt::Key_Forward)}, [this] { goForward(); },
            [this] { return canGoForward(); }, {}});
     a.add({u"up"_s, u"Up"_s, key(Qt::Key_Up, alt), {key(Qt::Key_Backspace)}, [this] { goUp(); },
            [this] { return canGoUp(); }, {}});
     a.add({u"home"_s, u"Home"_s, key(Qt::Key_Home, alt), {}, [this] { open(QDir::homePath()); }, {}, {}});
+    a.add({u"recent"_s, u"Recent Files"_s, {}, {}, [this] { showRecent(); }, {}, {}});
+    a.add({u"trash-place"_s, u"Trash"_s, {}, {}, [this] { showTrash(); }, {}, {}});
     a.add({u"location"_s, u"Location"_s, key(Qt::Key_L, ctrl), {}, [this] { editLocation(); }, {}, {}});
     a.add({u"pin"_s, u"Pin to Sidebar"_s, key(Qt::Key_D, ctrl), {}, [this] { togglePin(); },
            [this] { return !folder().isEmpty(); }, [this] { return folderPinned(); }});
@@ -151,8 +174,9 @@ void Browser::addActions()
     a.setMenus({
         {u"File"_s,
          {item(u"new-window"), item(u"new-folder"), sep, item(u"open"), openWith, item(u"preview"), sep,
-          item(u"rename"), item(u"trash"), sep, item(u"change-icon"), item(u"reset-icon"), sep,
-          item(u"close-window"), item(u"quit")}},
+          item(u"rename"), item(u"trash"), item(u"delete-for-good"), item(u"restore"), item(u"empty-trash"), sep,
+          item(u"change-icon"), item(u"reset-icon"), sep, item(u"connect"), sep, item(u"close-window"),
+          item(u"quit")}},
         {u"Edit"_s,
          {item(u"undo"), item(u"redo"), sep, item(u"cut"), item(u"copy"), item(u"paste"), sep,
           item(u"select-all"), sep, item(u"find"), item(u"find-contents"), sep, item(u"preferences")}},
@@ -160,7 +184,8 @@ void Browser::addActions()
          {item(u"view-grid"), item(u"view-list"), item(u"view-columns"), sep, item(u"tree"), item(u"hidden"),
           sep, item(u"sidebar"), item(u"details"), sep, sortMenu, panesMenu, sep, item(u"reload")}},
         {u"Go"_s,
-         {item(u"back"), item(u"forward"), item(u"up"), item(u"home"), sep, item(u"location"), item(u"pin")}},
+         {item(u"back"), item(u"forward"), item(u"up"), item(u"home"), sep, item(u"recent"), item(u"trash-place"),
+          sep, item(u"location"), item(u"pin")}},
         {u"Help"_s, {item(u"shortcuts"), item(u"about")}},
     });
     a.setContextMenus(

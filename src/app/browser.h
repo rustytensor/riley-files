@@ -10,13 +10,17 @@
 #include "fileops.h"
 #include "foldercolumn.h"
 #include "desktopentry.h"
+#include "drives.h"
 #include "filesearch.h"
 #include "foldermodel.h"
+#include "networkplaces.h"
 #include "panewidths.h"
 #include "pinnedfolders.h"
 #include "places.h"
 #include "preferences.h"
 #include "preview.h"
+#include "recentfiles.h"
+#include "trashmodel.h"
 
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -67,6 +71,25 @@ class Browser : public QObject
     Q_PROPERTY(int markedPlace READ markedPlace NOTIFY sidebarChanged)
     Q_PROPERTY(int markedPin READ markedPin NOTIFY sidebarChanged)
     Q_PROPERTY(bool folderPinned READ folderPinned NOTIFY sidebarChanged)
+    // The drives the person mounted, after the pinned folders in the sidebar (and in its
+    // cursor); the section shows only when there is one. markedDrive is the one shown, or -1.
+    Q_PROPERTY(Riley::DrivesModel *drives READ drives CONSTANT)
+    Q_PROPERTY(int markedDrive READ markedDrive NOTIFY sidebarChanged)
+    // The servers connected through GVfs, after the drives (Connect to Server in the File menu).
+    Q_PROPERTY(Riley::NetworkModel *network READ network CONSTANT)
+    Q_PROPERTY(int markedNetwork READ markedNetwork NOTIFY sidebarChanged)
+    // The Recent row, between the pinned folders and the drives: the files used lately.
+    Q_PROPERTY(bool markedRecent READ markedRecent NOTIFY sidebarChanged)
+
+    // A place that is not a folder, shown in the folder's place: "trash" (everything in every
+    // trash, with Restore, Delete for good and Empty Trash) or "recent"; empty for a folder.
+    // placeRow is the row its keys are on, or -1.
+    Q_PROPERTY(QString place READ place NOTIFY placeChanged)
+    Q_PROPERTY(int placeRow READ placeRow WRITE setPlaceRow NOTIFY placeRowChanged)
+    Q_PROPERTY(Riley::TrashModel *trash READ trash CONSTANT)
+    Q_PROPERTY(Riley::RecentFiles *recent READ recent CONSTANT)
+    // The Connect to Server field, in front of the window.
+    Q_PROPERTY(bool connectShown READ connectShown NOTIFY connectShownChanged)
 
     // The details pane on the right (Ctrl+I), about the row under the cursor.
     Q_PROPERTY(bool detailsShown READ detailsShown WRITE setDetailsShown NOTIFY detailsShownChanged)
@@ -130,6 +153,47 @@ public:
 
     Riley::PlacesModel *places() const { return m_places.get(); }
     Riley::PinnedModel *pinned() const { return m_pinned.get(); }
+    Riley::DrivesModel *drives() const { return m_drives.get(); }
+    int markedDrive() const;
+    // Unmounts and powers off the drive on that row of the drives (its eject mark); what went
+    // wrong is said in the message bar, in udisksctl's words.
+    Q_INVOKABLE void ejectDrive(int row);
+    Riley::NetworkModel *network() const { return m_network.get(); }
+    int markedNetwork() const;
+    bool markedRecent() const { return m_place == QLatin1String("recent"); }
+
+    // The trash view and the recent files (browserplaces.cpp).
+    QString place() const { return m_place; }
+    int placeRow() const { return m_placeRow; }
+    void setPlaceRow(int row);
+    Riley::TrashModel *trash() const { return m_trash.get(); }
+    Riley::RecentFiles *recent() const { return m_recent.get(); }
+    // Shows everything in the trash, read again; or the recent files; or the folder again.
+    Q_INVOKABLE void showTrash();
+    Q_INVOKABLE void showRecent();
+    Q_INVOKABLE void leavePlace();
+    // A click on a row of the place shown puts its keys there; a double-click opens it (a
+    // recent file) or restores it (a thing in the trash).
+    Q_INVOKABLE void clickPlaceRow(int row);
+    Q_INVOKABLE void openPlaceRow(int row);
+    // The trash view's buttons: the thing on that row put back where it came from (a taken
+    // name is asked about), deleted for good after asking, and every thing deleted for good
+    // after asking.
+    Q_INVOKABLE void restoreRow(int row);
+    Q_INVOKABLE void deleteRowForGood(int row);
+    Q_INVOKABLE void emptyTrash();
+    // Every trash folder there is: the home trash and each drive's own.
+    QStringList trashFolders() const;
+    // The home trash's files/, the folder the Trash place stands for.
+    static QString trashPlacePath();
+
+    // Connect to Server: the field, and what is typed in it (an sftp, smb, ftp, dav or davs
+    // address, given to "gio mount").
+    bool connectShown() const { return m_connectShown; }
+    Q_INVOKABLE void openConnect();
+    Q_INVOKABLE void cancelConnect();
+    Q_INVOKABLE void connectToServer(const QString &uri);
+
     bool sidebarFocus() const { return m_sidebarFocus; }
     // Moves the keyboard into the sidebar (its cursor on the place shown, if any) or back.
     Q_INVOKABLE void setSidebarFocus(bool on);
@@ -312,6 +376,9 @@ signals:
     void searchTextChanged();
     void searchCursorChanged();
     void searchStatusChanged();
+    void placeChanged();
+    void placeRowChanged();
+    void connectShownChanged();
 
     // Asks for what the window, not the browser, does: another window on `folder`, and closing
     // this one.
@@ -374,6 +441,9 @@ private:
     bool previewKey(int key, Qt::KeyboardModifiers mods);
     void stepPreview(int by);
     void setSidebarCursor(int row);
+    // How many rows the sidebar's cursor goes through: places, pinned folders, Recent, drives,
+    // network places.
+    int sidebarRowCount() const;
     // Points the details and the preview at what the keys are on now.
     void followFocus();
     // Search (browsersearch.cpp).
@@ -382,6 +452,21 @@ private:
     bool searchKey(int key, Qt::KeyboardModifiers mods);
     bool searchAllows(const QString &actionId) const;
     bool somethingInFront() const;
+    // The trash view and the recent files (browserplaces.cpp).
+    void setPlace(const QString &place);
+    void reloadTrash();
+    void followPlaceRows();
+    bool placeKey(int key, Qt::KeyboardModifiers mods);
+    bool placeAllows(const QString &actionId) const;
+    int placeCount() const;
+    QString placePathAt(int row) const;
+    // Deletes the targets for good (Shift+Delete), after asking.
+    void deleteTargetsForGood();
+    void askDeleteForGood(const QStringList &paths, const QString &name);
+    // Where the sidebar's sections start in its cursor.
+    int recentSidebarRow() const;
+    int drivesSidebarRow() const { return recentSidebarRow() + 1; }
+    int networkSidebarRow() const;
 
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<Riley::FolderModel> m_model;
@@ -410,6 +495,14 @@ private:
 
     std::unique_ptr<Riley::PlacesModel> m_places;
     std::unique_ptr<Riley::PinnedModel> m_pinned;
+    std::unique_ptr<Riley::DrivesModel> m_drives;
+    std::unique_ptr<Riley::NetworkModel> m_network;
+    std::unique_ptr<Riley::TrashModel> m_trash;
+    std::unique_ptr<Riley::RecentFiles> m_recent;
+    QString m_place;
+    int m_placeRow = -1;
+    QString m_placeRowPath; // the path the place's keys are on, kept as its rows change
+    bool m_connectShown = false;
     bool m_sidebarFocus = false;
     int m_sidebarCursor = 0;
 

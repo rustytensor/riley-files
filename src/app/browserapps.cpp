@@ -52,8 +52,18 @@ void Browser::openFiles(const QStringList &paths)
 void Browser::launch(const DesktopEntry &app, const QStringList &paths)
 {
     QString error;
-    if (!MimeApps::launch(app, paths, &error))
+    if (!MimeApps::launch(app, paths, &error)) {
         m_ops->say(error);
+        return;
+    }
+    // Every file opened here is a recent file, for every program that reads the bookmark file.
+    for (const QString &path : paths) {
+        QString why;
+        if (QFileInfo(path).isFile() && !Riley::RecentFiles::record(path, mimeTypeOf(path), &why))
+            m_ops->say(why);
+    }
+    if (m_place == QLatin1String("recent"))
+        m_recent->reload();
 }
 
 QList<Entry> Browser::openWithEntries()

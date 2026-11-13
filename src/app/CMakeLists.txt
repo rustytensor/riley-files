@@ -10,6 +10,7 @@
 qt_add_library(riley-ui SHARED
     actions.h actions.cpp
     browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
+    browserplaces.cpp
     chooser.h chooser.cpp
     iconprovider.h iconprovider.cpp
     panewidths.h panewidths.cpp
@@ -55,6 +56,10 @@ set(rf_qml_files
     qml/ChooserDialog.qml
     qml/SearchResults.qml
     qml/SearchRow.qml
+    qml/TrashView.qml
+    qml/RecentView.qml
+    qml/PlaceRow.qml
+    qml/ConnectDialog.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.

@@ -229,6 +229,22 @@ void FileOps::trash(const QStringList &paths)
     run(new Riley::TrashJob(paths));
 }
 
+void FileOps::restore(const QStringList &trashedPaths)
+{
+    if (trashedPaths.isEmpty())
+        return;
+    auto *job = new Riley::RestoreJob(trashedPaths, true);
+    landAfter(job);
+    run(job);
+}
+
+void FileOps::deleteForGood(const QStringList &paths)
+{
+    if (paths.isEmpty())
+        return;
+    run(new Riley::DeleteJob(paths));
+}
+
 void FileOps::newFolder(const QString &folder)
 {
     if (folder.isEmpty())

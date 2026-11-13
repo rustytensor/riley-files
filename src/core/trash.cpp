@@ -51,20 +51,74 @@ bool writeAll(int fd, const QByteArray &bytes)
     return true;
 }
 
-// The name of a thing in Trash/files, when trashedPath is directly in it.
-std::optional<QString> trashedName(const QString &trashedPath)
+// Where a thing in a trash is: its trash folder, the top folder its drive is mounted on (empty
+// for the home trash, whose info files hold absolute paths) and its name in files/.
+struct Place
 {
-    const QString clean = QDir::cleanPath(QFileInfo(trashedPath).absoluteFilePath());
-    const QString filesDir = Trash::homeTrashPath() + QStringLiteral("/files");
-    const QFileInfo info(clean);
-    if (info.absolutePath() != filesDir || info.fileName().isEmpty())
-        return std::nullopt;
-    return info.fileName();
+    QString trash;
+    QString top;
+    QString name;
+
+    QString filePath() const { return trash + QStringLiteral("/files/") + name; }
+    QString infoPath() const { return trash + QStringLiteral("/info/") + name + QStringLiteral(".trashinfo"); }
+};
+
+QString driveTrashName()
+{
+    return QStringLiteral(".Trash-%1").arg(::getuid());
 }
 
-QString infoPathOf(const QString &name)
+// Where trashedPath is, when it is directly in the files/ folder of the home trash or of a
+// drive's .Trash-<uid>.
+std::optional<Place> locate(const QString &trashedPath)
 {
-    return Trash::homeTrashPath() + QStringLiteral("/info/") + name + QStringLiteral(".trashinfo");
+    const QFileInfo info(QDir::cleanPath(QFileInfo(trashedPath).absoluteFilePath()));
+    const QString name = info.fileName();
+    const QFileInfo files(info.absolutePath());
+    if (name.isEmpty() || files.fileName() != QLatin1String("files"))
+        return std::nullopt;
+    const QString trash = files.absolutePath();
+    if (trash == Trash::homeTrashPath())
+        return Place{trash, QString(), name};
+    const QFileInfo trashInfo(trash);
+    if (trashInfo.fileName() == driveTrashName())
+        return Place{trash, trashInfo.absolutePath(), name};
+    return std::nullopt;
+}
+
+// The device of the nearest folder that exists on the way up from path (the one a folder made
+// at path would be on).
+std::optional<dev_t> deviceOfNearest(QString path)
+{
+    struct stat st;
+    for (;;) {
+        if (::stat(QFile::encodeName(path).constData(), &st) == 0)
+            return st.st_dev;
+        if (path == QLatin1String("/") || path.isEmpty())
+            return std::nullopt;
+        path = QFileInfo(path).absolutePath();
+    }
+}
+
+// A drive's trash folder that is there already must be a real folder (not a symlink someone
+// else planted) owned by this user; one that is not there is made, private.
+bool claimDriveTrash(const QString &trash, QString *error)
+{
+    const QByteArray p = QFile::encodeName(trash);
+    struct stat st;
+    if (::lstat(p.constData(), &st) == 0) {
+        if (!S_ISDIR(st.st_mode) || st.st_uid != ::getuid()) {
+            if (error)
+                *error = QStringLiteral("The trash folder %1 is not yours, so nothing is put in it").arg(trash);
+            return false;
+        }
+        return true;
+    }
+    if (::mkdir(p.constData(), 0700) == 0 || errno == EEXIST)
+        return true;
+    if (error)
+        *error = QStringLiteral("This drive has no trash and one cannot be made (%1)").arg(systemError(errno));
+    return false;
 }
 
 int removeOne(const char *path, const struct stat *, int type, struct FTW *)
@@ -82,6 +136,69 @@ QString Trash::homeTrashPath()
     return QDir::cleanPath(data + QStringLiteral("/Trash"));
 }
 
+QString Trash::topDirOf(const QString &path)
+{
+    QString at = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+    struct stat st;
+    if (::lstat(QFile::encodeName(at).constData(), &st) != 0)
+        return QString();
+    const dev_t device = st.st_dev;
+    while (at != QLatin1String("/")) {
+        const QString parent = QFileInfo(at).absolutePath();
+        if (::stat(QFile::encodeName(parent).constData(), &st) != 0 || st.st_dev != device)
+            return at;
+        at = parent;
+    }
+    return at;
+}
+
+QString Trash::driveTrashPath(const QString &topDir)
+{
+    const QString top = QDir::cleanPath(topDir);
+    return top == QLatin1String("/") ? QLatin1Char('/') + driveTrashName() : top + QLatin1Char('/') + driveTrashName();
+}
+
+QString Trash::trashPathFor(const QString &path, QString *error)
+{
+    const QString original = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+    struct stat st;
+    if (::lstat(QFile::encodeName(original).constData(), &st) != 0) {
+        if (error)
+            *error = QStringLiteral("“%1” is not there any more").arg(QFileInfo(original).fileName());
+        return QString();
+    }
+    const QString home = homeTrashPath();
+    const std::optional<dev_t> homeDevice = deviceOfNearest(home);
+    if (homeDevice && *homeDevice == st.st_dev)
+        return home;
+    const QString top = topDirOf(original);
+    if (top.isEmpty() || top == original) {
+        if (error)
+            *error = QStringLiteral("“%1” is where a drive is mounted and cannot go into the trash")
+                         .arg(QFileInfo(original).fileName());
+        return QString();
+    }
+    return driveTrashPath(top);
+}
+
+bool Trash::isInTrash(const QString &path)
+{
+    return locate(path).has_value();
+}
+
+QStringList Trash::trashFolders(const QStringList &driveTops)
+{
+    QStringList folders{homeTrashPath()};
+    for (const QString &top : driveTops) {
+        const QString trash = driveTrashPath(top);
+        struct stat st;
+        if (!folders.contains(trash) && ::lstat(QFile::encodeName(trash).constData(), &st) == 0
+            && S_ISDIR(st.st_mode) && st.st_uid == ::getuid())
+            folders.append(trash);
+    }
+    return folders;
+}
+
 std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
 {
     const QFileInfo given(path);
@@ -92,29 +209,46 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
             *error = QStringLiteral("“%1” is not there any more").arg(name);
         return std::nullopt;
     }
-    const QString trash = homeTrashPath();
+    const QString trash = trashPathFor(original, error);
+    if (trash.isEmpty())
+        return std::nullopt;
     if (isSameOrInside(trash, original)) {
         if (error)
             *error = QStringLiteral("“%1” holds the trash itself and cannot go into it").arg(name);
         return std::nullopt;
     }
+    const bool home = trash == homeTrashPath();
     const QString filesDir = trash + QStringLiteral("/files");
     const QString infoDir = trash + QStringLiteral("/info");
-    // The data folder itself may not be there yet ($XDG_DATA_HOME on a fresh account).
-    const QString dataDir = QFileInfo(trash).absolutePath();
-    if (!QFileInfo(dataDir).isDir() && !QDir().mkpath(dataDir)) {
-        if (error)
-            *error = QStringLiteral("Cannot make the folder %1 for the trash").arg(dataDir);
+    if (home) {
+        // The data folder itself may not be there yet ($XDG_DATA_HOME on a fresh account).
+        const QString dataDir = QFileInfo(trash).absolutePath();
+        if (!QFileInfo(dataDir).isDir() && !QDir().mkpath(dataDir)) {
+            if (error)
+                *error = QStringLiteral("Cannot make the folder %1 for the trash").arg(dataDir);
+            return std::nullopt;
+        }
+        if (!makeFolder(trash, error))
+            return std::nullopt;
+    } else if (!claimDriveTrash(trash, error)) {
         return std::nullopt;
     }
-    if (!makeFolder(trash, error) || !makeFolder(filesDir, error) || !makeFolder(infoDir, error))
+    if (!makeFolder(filesDir, error) || !makeFolder(infoDir, error))
         return std::nullopt;
+
+    // The home trash names the absolute path; a drive's trash the path below the drive's top
+    // folder, so it still fits when the drive is mounted somewhere else.
+    QString named = original;
+    if (!home) {
+        const QString top = QFileInfo(trash).absolutePath();
+        named = top == QLatin1String("/") ? original.mid(1) : original.mid(top.size() + 1);
+    }
 
     // The info file is made first, exclusively: that claims the name, so two programs trashing
     // at once never pick the same one.
     const QDateTime now = QDateTime::currentDateTime();
     const QByteArray info = QByteArrayLiteral("[Trash Info]\nPath=")
-                            + QUrl::toPercentEncoding(QString::fromLocal8Bit(QFile::encodeName(original)), "/")
+                            + QUrl::toPercentEncoding(QString::fromLocal8Bit(QFile::encodeName(named)), "/")
                             + QByteArrayLiteral("\nDeletionDate=")
                             + now.toString(QStringLiteral("yyyy-MM-ddThh:mm:ss")).toLatin1()
                             + QByteArrayLiteral("\n");
@@ -163,14 +297,14 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
 
 std::optional<TrashEntry> Trash::entryFor(const QString &trashedPath)
 {
-    const std::optional<QString> name = trashedName(trashedPath);
-    if (!name)
+    const std::optional<Place> place = locate(trashedPath);
+    if (!place)
         return std::nullopt;
-    QFile file(infoPathOf(*name));
+    QFile file(place->infoPath());
     if (!file.open(QIODevice::ReadOnly))
         return std::nullopt;
     TrashEntry entry;
-    entry.trashedPath = homeTrashPath() + QStringLiteral("/files/") + *name;
+    entry.trashedPath = place->filePath();
     entry.infoPath = file.fileName();
     bool inGroup = false;
     const QList<QByteArray> lines = file.readAll().split('\n');
@@ -183,10 +317,12 @@ std::optional<TrashEntry> Trash::entryFor(const QString &trashedPath)
         if (!inGroup)
             continue;
         if (line.startsWith("Path=")) {
-            // Percent-encoded bytes; an absolute path, or one relative to the drive's top
-            // (only for other drives' trash folders, so not here).
-            const QByteArray raw = QByteArray::fromPercentEncoding(line.mid(5));
-            entry.originalPath = QDir::cleanPath(QFile::decodeName(raw));
+            // Percent-encoded bytes: an absolute path, or in a drive's trash one relative to
+            // the drive's top folder.
+            QString named = QFile::decodeName(QByteArray::fromPercentEncoding(line.mid(5)));
+            if (!place->top.isEmpty() && !named.isEmpty() && !QDir::isAbsolutePath(named))
+                named = place->top + QLatin1Char('/') + named;
+            entry.originalPath = QDir::cleanPath(named);
         } else if (line.startsWith("DeletionDate=")) {
             entry.deletedAt = QDateTime::fromString(QString::fromLatin1(line.mid(13)),
                                                     QStringLiteral("yyyy-MM-ddThh:mm:ss"));
@@ -199,16 +335,16 @@ std::optional<TrashEntry> Trash::entryFor(const QString &trashedPath)
 
 std::optional<QString> Trash::restore(const QString &trashedPath, const QString &destination, QString *error)
 {
-    const std::optional<QString> name = trashedName(trashedPath);
-    if (!name) {
+    const std::optional<Place> place = locate(trashedPath);
+    if (!place) {
         if (error)
             *error = QStringLiteral("“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
         return std::nullopt;
     }
-    const QString inTrash = homeTrashPath() + QStringLiteral("/files/") + *name;
+    const QString inTrash = place->filePath();
     if (!pathExists(inTrash)) {
         if (error)
-            *error = QStringLiteral("“%1” is no longer in the trash").arg(*name);
+            *error = QStringLiteral("“%1” is no longer in the trash").arg(place->name);
         return std::nullopt;
     }
     QString target = destination.isEmpty() ? QString() : QDir::cleanPath(QFileInfo(destination).absoluteFilePath());
@@ -216,7 +352,7 @@ std::optional<QString> Trash::restore(const QString &trashedPath, const QString 
         const std::optional<TrashEntry> entry = entryFor(inTrash);
         if (!entry) {
             if (error)
-                *error = QStringLiteral("The trash does not say where “%1” came from").arg(*name);
+                *error = QStringLiteral("The trash does not say where “%1” came from").arg(place->name);
             return std::nullopt;
         }
         target = entry->originalPath;
@@ -232,27 +368,28 @@ std::optional<QString> Trash::restore(const QString &trashedPath, const QString 
     if (e != 0) {
         if (error) {
             *error = e == EEXIST ? QStringLiteral("There is already something named “%1” in %2").arg(targetName, parent)
-                                 : QStringLiteral("Cannot put “%1” back: %2").arg(targetName, systemError(e));
+                     : e == EXDEV ? QStringLiteral("“%1” cannot go back to %2: it is on another drive now").arg(targetName, parent)
+                                  : QStringLiteral("Cannot put “%1” back: %2").arg(targetName, systemError(e));
         }
         return std::nullopt;
     }
-    ::unlink(QFile::encodeName(infoPathOf(*name)).constData());
+    ::unlink(QFile::encodeName(place->infoPath()).constData());
     return target;
 }
 
 bool Trash::erase(const QString &trashedPath, QString *error)
 {
-    const std::optional<QString> name = trashedName(trashedPath);
-    if (!name) {
+    const std::optional<Place> place = locate(trashedPath);
+    if (!place) {
         if (error)
             *error = QStringLiteral("“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
         return false;
     }
-    const QString inTrash = homeTrashPath() + QStringLiteral("/files/") + *name;
+    const QString inTrash = place->filePath();
     if (pathExists(inTrash) && !removeForGood(inTrash, error))
         return false;
     // The info file goes last: a thing whose removal failed half-way keeps its record.
-    ::unlink(QFile::encodeName(infoPathOf(*name)).constData());
+    ::unlink(QFile::encodeName(place->infoPath()).constData());
     return true;
 }
 

@@ -166,7 +166,7 @@ QString Browser::searchHint() const
 bool Browser::somethingInFront() const
 {
     return m_ops->asking() || m_actions->menuOpen() || !m_question.isEmpty() || m_chooser->shown()
-           || m_shortcutsShown || m_prefs->shown() || m_preview->isOpen();
+           || m_shortcutsShown || m_prefs->shown() || m_preview->isOpen() || m_connectShown;
 }
 
 bool Browser::searchFieldKey(int key, int modifiers, const QString &text)

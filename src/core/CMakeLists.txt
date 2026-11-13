@@ -33,6 +33,15 @@ add_library(riley-core SHARED
     # Search (milestone 5): filesearch.h finds files below a folder by name, or inside them
     # through ripgrep, off the UI thread.
     filesearch.h filesearch.cpp
+    # Drives (milestone 6): drives.h the drives the person mounted, read from mountinfo, and
+    # eject through udisksctl. Things on a drive go to its own trash (trash.h).
+    drives.h drives.cpp
+    # The trash view, recent files and network places (milestone 6): trashmodel.h everything in
+    # every trash; recentfiles.h the freedesktop recently-used.xbel, read and written;
+    # networkplaces.h the servers connected through GVfs, and Connect to Server through gio.
+    trashmodel.h trashmodel.cpp
+    recentfiles.h recentfiles.cpp
+    networkplaces.h networkplaces.cpp
 )
 
 include(GenerateExportHeader)

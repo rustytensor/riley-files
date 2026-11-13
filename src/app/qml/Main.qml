@@ -159,6 +159,11 @@ Window {
             browser: root.browser
         }
 
+        ConnectDialog {
+            anchors.fill: parent
+            browser: root.browser
+        }
+
         // A click anywhere outside an open menu closes it. The menu bar stays above it, so its
         // titles still switch between menus.
         MouseArea {
@@ -217,6 +222,10 @@ Window {
         function onSearchShownChanged() {
             if (!root.browser.searchShown)
                 keys.forceActiveFocus()
+        }
+        function onConnectShownChanged() {
+            if (!root.browser.connectShown)
+                root.giveKeysBack()
         }
         function onCloseWindowAsked() { root.close() }
     }

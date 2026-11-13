@@ -70,7 +70,7 @@ Rectangle {
             baseline: title.baseline
         }
         visible: !bar.browser.locationEditing && !bar.browser.searchShown
-        text: bar.browser.folder
+        text: bar.browser.place.length > 0 ? "" : bar.browser.folder
         color: Theme.textFaint
         font.pixelSize: Theme.fontSmall
         elide: Text.ElideMiddle

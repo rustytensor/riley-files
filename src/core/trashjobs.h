@@ -34,14 +34,17 @@ private:
     QStringList m_trashed;
 };
 
-// Puts things from the home trash (paths in Trash/files) back where they came from. A taken
-// name is a failure; nothing is overwritten. Each item is one Restored step.
+// Puts things from a trash (paths in a trash's files/) back where they came from. Nothing is
+// ever overwritten: a taken name is a failure, or, with askOnClash, a question (Skip, Keep
+// both: the thing comes back under a free name, Replace: the one in the way goes to the trash
+// first). Each item is one Restored step.
 class RILEYCORE_EXPORT RestoreJob : public FileJob
 {
     Q_OBJECT
 
 public:
     explicit RestoreJob(const QStringList &trashedPaths, QObject *parent = nullptr);
+    RestoreJob(const QStringList &trashedPaths, bool askOnClash, QObject *parent = nullptr);
     Kind kind() const override { return Kind::Restore; }
 
     // Where each item is now, in the order given; complete once done.
@@ -52,6 +55,7 @@ protected:
 
 private:
     const QStringList m_paths;
+    const bool m_ask = false;
     mutable QMutex m_resultMutex;
     QStringList m_restored;
 };
