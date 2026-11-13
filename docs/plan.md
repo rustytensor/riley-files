@@ -5,8 +5,9 @@ keyboard, with menus and an options panel for people who like to set things up t
 
 ## Principles
 
-- **Nothing in the background.** Folders are read when they are opened; thumbnails are made when they are
-  shown; search runs only while you search. No indexer, no daemon.
+- **Fast, and never in the way.** Folders are read off the window's thread, thumbnails are made when they
+  are shown, and search answers at once from an index kept up to date as files change, with generous
+  settings for what it covers.
 - **Never lose a file.** Delete means trash, every file operation can be undone, a name clash is asked
   about and never overwritten, a long copy can be stopped.
 - **Share with the desktop.** Thumbnails in `~/.cache/thumbnails`, default apps in `mimeapps.list`, custom
