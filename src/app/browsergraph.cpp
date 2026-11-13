@@ -4,12 +4,18 @@
 // The graph view: the folder shown and everything below it as nodes in 3D (riley-graph builds
 // it, off the UI thread). The keys move through it as through a tree: Down to the first child,
 // Up to the parent, Left and Right between siblings; Return opens a folder in the list view (a
-// file with its application), Escape goes back to the list.
+// file with its application), Escape goes back to the list, and G starts "Watch it grow".
 
 #include "browser.h"
 
+#include "graphlook.h"
+
+#include <QColor>
+
 #include <QQuickWindow>
 #include <QSGRendererInterface>
+
+using namespace Qt::StringLiterals;
 
 void Browser::startGraph()
 {
@@ -84,10 +90,24 @@ bool Browser::graphCanDraw(QObject *window) const
     return QSGRendererInterface::isApiRhiBased(api) && api != QSGRendererInterface::Null;
 }
 
+QVariantMap Browser::graphPalette() const
+{
+    const auto colour = [](const Riley::GraphRgb &rgb) { return QVariant::fromValue(QColor(rgb.r, rgb.g, rgb.b)); };
+    return {{u"background"_s, colour(Riley::GraphLook::Background)},
+            {u"text"_s, colour(Riley::GraphLook::LabelBright)},
+            {u"dim"_s, colour(Riley::GraphLook::LabelDim)},
+            {u"accent"_s, colour(Riley::GraphLook::Teal)},
+            {u"panel"_s, colour(Riley::GraphLook::Background)}};
+}
+
 bool Browser::graphKey(int key)
 {
     if (key == Qt::Key_Escape) {
         setView(List);
+        return true;
+    }
+    if (key == Qt::Key_G) {
+        emit graphGrowAsked();
         return true;
     }
     if (m_graphNode < 0)

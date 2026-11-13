@@ -3,6 +3,10 @@
 
 #include "graphbuilder.h"
 
+#include "graphgrowth.h"
+#include "graphlook.h"
+#include "sitelayout.h"
+
 #include <QDir>
 #include <QLocale>
 #include <QMetaObject>
@@ -55,32 +59,46 @@ void GraphBuilder::clear()
     stop();
     m_tree = GraphTree();
     m_positions.clear();
+    m_sitePositions.clear();
+    m_sizes.clear();
+    m_groups.clear();
+    m_born.clear();
     emit built();
 }
 
 void GraphBuilder::run(quint64 generation, QString folder, bool showHidden, std::shared_ptr<std::atomic<bool>> stop)
 {
     noteThread();
-    GraphTree tree = GraphTree::walk(folder, showHidden, stop.get());
+    Built made;
+    made.tree = GraphTree::walk(folder, showHidden, stop.get());
     if (stop->load())
         return;
-    QList<GraphPoint> positions = ForceLayout::layOut(tree, stop.get());
+    made.positions = ForceLayout::layOut(made.tree, stop.get());
+    if (stop->load())
+        return;
+    made.sitePositions = SiteLayout::layOut(made.tree, stop.get());
+    if (stop->load())
+        return;
+    made.sizes = SiteLayout::sizes(made.tree);
+    made.groups = GraphLook::groupsOf(made.tree);
+    made.born = GraphHistory::bornTimes(made.tree, stop.get());
     if (stop->load())
         return;
     QMetaObject::invokeMethod(
-        this,
-        [this, generation, tree = std::move(tree), positions = std::move(positions)]() mutable {
-            receive(generation, std::move(tree), std::move(positions));
-        },
+        this, [this, generation, made = std::move(made)]() mutable { receive(generation, std::move(made)); },
         Qt::QueuedConnection);
 }
 
-void GraphBuilder::receive(quint64 generation, GraphTree tree, QList<GraphPoint> positions)
+void GraphBuilder::receive(quint64 generation, Built made)
 {
     if (generation != m_generation)
         return;
-    m_tree = std::move(tree);
-    m_positions = std::move(positions);
+    m_tree = std::move(made.tree);
+    m_positions = std::move(made.positions);
+    m_sitePositions = std::move(made.sitePositions);
+    m_sizes = std::move(made.sizes);
+    m_groups = std::move(made.groups);
+    m_born = std::move(made.born);
     setRunning(false);
     emit built();
 }

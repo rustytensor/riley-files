@@ -1345,6 +1345,13 @@
     </message>
 </context>
 <context>
+    <name>GraphScene</name>
+    <message>
+        <source>Watch it grow</source>
+        <translation>Sieh es wachsen</translation>
+    </message>
+</context>
+<context>
     <name>GraphView</name>
     <message>
         <source>The graph needs 3D graphics.</source>

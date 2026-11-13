@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 project(riley-files
-    VERSION 0.7.0
+    VERSION 0.8.0
     DESCRIPTION "The file manager of the Riley desktop"
     LANGUAGES CXX)
 
@@ -15,7 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(GNUInstallDirs)
 include(CTest)   # defines BUILD_TESTING (on by default) and enables ctest
 
-set(rf_qt_components Core Gui Qml Quick Quick3D LinguistTools)
+set(rf_qt_components Core Gui Qml Quick LinguistTools)
 if(BUILD_TESTING)
     list(APPEND rf_qt_components Test)
 endif()

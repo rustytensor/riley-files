@@ -49,6 +49,13 @@ public:
     // The graph last built, and where each of its nodes is.
     const GraphTree &tree() const { return m_tree; }
     const QList<GraphPoint> &positions() const { return m_positions; }
+    // The same graph laid out as servorra.com lays out its own (SiteLayout), in [-1,1], with each
+    // node's size (1..255), colour group (GraphLook::groupsOf) and the time it first appeared
+    // (GraphHistory::bornTimes), for the view and "Watch it grow".
+    const QList<GraphPoint> &sitePositions() const { return m_sitePositions; }
+    const QList<int> &sizes() const { return m_sizes; }
+    const QList<int> &groups() const { return m_groups; }
+    const QList<qint64> &bornTimes() const { return m_born; }
     int count() const { return m_tree.size(); }
     bool foldersOnly() const { return m_tree.foldersOnly(); }
 
@@ -83,7 +90,17 @@ signals:
 
 private:
     void run(quint64 generation, QString folder, bool showHidden, std::shared_ptr<std::atomic<bool>> stop);
-    void receive(quint64 generation, GraphTree tree, QList<GraphPoint> positions);
+    // What a build hands back.
+    struct Built
+    {
+        GraphTree tree;
+        QList<GraphPoint> positions;
+        QList<GraphPoint> sitePositions;
+        QList<int> sizes;
+        QList<int> groups;
+        QList<qint64> born;
+    };
+    void receive(quint64 generation, Built made);
     void setRunning(bool running);
     void noteThread();
 
@@ -91,6 +108,10 @@ private:
     bool m_running = false;
     GraphTree m_tree;
     QList<GraphPoint> m_positions;
+    QList<GraphPoint> m_sitePositions;
+    QList<int> m_sizes;
+    QList<int> m_groups;
+    QList<qint64> m_born;
     quint64 m_generation = 0;
     std::shared_ptr<std::atomic<bool>> m_stop;
 

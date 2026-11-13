@@ -33,6 +33,7 @@
 #include <QString>
 #include <QThreadPool>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include <functional>
@@ -76,6 +77,9 @@ class Browser : public QObject
     Q_PROPERTY(int graphHover READ graphHover NOTIFY graphNodeChanged)
     Q_PROPERTY(int graphLabelNode READ graphLabelNode NOTIFY graphNodeChanged)
     Q_PROPERTY(QString graphLabel READ graphLabel NOTIFY graphNodeChanged)
+    // The graph's own colours, servorra.com's whatever Riley's theme is: background, text, dim,
+    // accent (teal) and panel (the background, for what floats over the graph).
+    Q_PROPERTY(QVariantMap graphPalette READ graphPalette CONSTANT)
 
     // The sidebar: places, then pinned folders. The keyboard is in it or in the files (Tab).
     // Its cursor counts the places first, then the pinned folders after them.
@@ -382,10 +386,12 @@ public:
     Q_INVOKABLE void hoverGraphNode(int node);
     Q_INVOKABLE void clickGraphNode(int node);
     Q_INVOKABLE void openGraphNode(int node);
-    // Whether the graph can be drawn in `window` (a QQuickWindow): its scene is drawn through a
-    // 3D graphics API, not in software. RILEY_FILES_NO_3D set in the environment says no, so
-    // the view's other face can be seen and tested.
+    // Whether the graph can be drawn in `window` (a QQuickWindow): its scene graph draws through a
+    // graphics API (OpenGL, Vulkan, ...), not in software, which cannot draw the graph's
+    // triangles. RILEY_FILES_NO_3D set in the environment says no, so the view's other face can
+    // be seen and tested.
     Q_INVOKABLE bool graphCanDraw(QObject *window) const;
+    QVariantMap graphPalette() const;
 
     // Folders open in place in the list view. Off by default; turning it off closes them.
     bool tree() const { return m_tree; }
@@ -465,6 +471,8 @@ signals:
     void placeRowChanged();
     void connectShownChanged();
     void graphNodeChanged();
+    // G in the graph view: "Watch it grow" from the start.
+    void graphGrowAsked();
     void readmeChanged();
 
     // Asks for what the window, not the browser, does: another window on `folder`, and closing

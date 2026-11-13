@@ -13,7 +13,7 @@ qt_add_library(riley-ui SHARED
     browserplaces.cpp browserversions.cpp browsergraph.cpp browserreadme.cpp
     browserindex.cpp
     readme.h readme.cpp
-    graphscene.h graphscene.cpp
+    graphcanvas.h graphcanvas.cpp
     chooser.h chooser.cpp
     iconprovider.h iconprovider.cpp
     fileglyphs.h fileglyphs.cpp
@@ -93,7 +93,7 @@ target_include_directories(riley-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(riley-ui
     PUBLIC riley-core riley-thumbs riley-graph riley-index Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Quick3D riley_warnings)
+    PRIVATE riley_warnings)
 
 set_target_properties(riley-ui PROPERTIES
     VERSION ${PROJECT_VERSION}
