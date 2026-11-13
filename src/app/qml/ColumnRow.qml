@@ -20,9 +20,14 @@ Rectangle {
 
     readonly property bool current: ListView.isCurrentItem
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: name
+    Accessible.selected: current
+
     height: Theme.rowHeight
     color: current ? (active ? Theme.cursorRow : Theme.restingRow)
-                   : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+                   : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
     Rectangle {
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }

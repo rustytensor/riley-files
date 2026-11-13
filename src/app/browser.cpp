@@ -213,16 +213,16 @@ Browser::~Browser() = default;
 QString Browser::folderName() const
 {
     if (m_place == QLatin1String("trash"))
-        return QStringLiteral("Trash");
+        return tr("Trash");
     if (m_place == QLatin1String("recent"))
-        return QStringLiteral("Recent");
+        return tr("Recent");
     if (m_place == QLatin1String("versions"))
-        return QStringLiteral("Previous Versions");
+        return tr("Previous Versions");
     const QString path = folder();
     if (path == QLatin1String("/"))
         return path;
     if (path == QDir::homePath())
-        return QStringLiteral("Home");
+        return tr("Home");
     return QFileInfo(path).fileName();
 }
 
@@ -1069,7 +1069,7 @@ void Browser::openSidebarRow(int row)
         return;
     }
     if (!QFileInfo(path).isDir()) {
-        m_ops->say(QStringLiteral("“%1” is not there any more.").arg(QFileInfo(path).fileName()));
+        m_ops->say(tr("“%1” is not there any more.").arg(QFileInfo(path).fileName()));
         return;
     }
     if (clean(path) != folder())
@@ -1087,11 +1087,11 @@ void Browser::togglePin()
     const bool now = m_pinned->toggle(path);
     const QString name = folderName();
     if (now == was)
-        m_ops->say(m_pinned->error().isEmpty() ? QStringLiteral("The pinned folders could not be changed.")
+        m_ops->say(m_pinned->error().isEmpty() ? tr("The pinned folders could not be changed.")
                                                : m_pinned->error());
     else
-        m_ops->say(now ? QStringLiteral("Pinned “%1” to the sidebar.").arg(name)
-                       : QStringLiteral("Unpinned “%1”.").arg(name));
+        m_ops->say(now ? tr("Pinned “%1” to the sidebar.").arg(name)
+                       : tr("Unpinned “%1”.").arg(name));
     emit sidebarChanged();
 }
 

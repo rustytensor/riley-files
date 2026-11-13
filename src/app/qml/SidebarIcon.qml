@@ -69,7 +69,7 @@ Item {
         x: icon.size * 0.06; y: icon.size * 0.06
         width: icon.size * 0.88; height: width
         radius: width / 2
-        color: "transparent"
+        color: Theme.none
         border.color: icon.tint
         border.width: Math.max(1.5, icon.size * 0.11)
     }

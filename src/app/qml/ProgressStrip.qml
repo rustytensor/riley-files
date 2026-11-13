@@ -14,6 +14,10 @@ Rectangle {
     implicitHeight: visible ? Theme.stripHeight : 0
     color: Theme.strip
 
+    Accessible.role: Accessible.ProgressBar
+    Accessible.name: ops.progressTitle
+    Accessible.description: ops.progressDetail
+
     Rectangle {
         anchors { left: parent.left; right: parent.right; top: parent.top }
         height: 1
@@ -75,11 +79,16 @@ Rectangle {
         height: Theme.buttonHeight
         radius: Theme.radius
         color: stopMouse.containsMouse ? Theme.buttonHover : Theme.button
+        Behavior on color { ColorAnimation { duration: Theme.quick } }
         opacity: strip.ops.stopping ? 0.5 : 1
+
+        Accessible.role: Accessible.Button
+        Accessible.name: strip.ops.stopping ? qsTr("Stopping") : qsTr("Stop")
+        Accessible.onPressAction: if (!strip.ops.stopping) strip.ops.stop()
 
         Text {
             anchors.centerIn: parent
-            text: strip.ops.stopping ? "Stopping" : "Stop"
+            text: strip.ops.stopping ? qsTr("Stopping") : qsTr("Stop")
             color: Theme.text
             font.pixelSize: Theme.fontNormal
         }

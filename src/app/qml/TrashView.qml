@@ -24,6 +24,10 @@ Rectangle {
         property bool active: true
         signal clicked()
 
+        Accessible.role: Accessible.Button
+        Accessible.name: label
+        Accessible.onPressAction: if (button.active) button.clicked()
+
         width: text.implicitWidth + Theme.spacing * 3
         height: Theme.buttonHeight - 6
         radius: Theme.radius
@@ -53,8 +57,9 @@ Rectangle {
 
         Text {
             anchors { left: parent.left; leftMargin: Theme.spacing * 1.5; verticalCenter: parent.verticalCenter }
-            text: list.count === 0 ? "The trash is empty."
-                                   : list.count === 1 ? "1 item in the trash" : list.count + " items in the trash"
+            text: list.count === 0 ? qsTr("The trash is empty.")
+                                   : list.count === 1 ? qsTr("1 item in the trash")
+                                                      : qsTr("%1 items in the trash").arg(list.count)
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
         }
@@ -65,19 +70,19 @@ Rectangle {
 
             ToolButton {
                 objectName: "restoreButton"
-                label: "Restore"
+                label: qsTr("Restore")
                 active: view.browser.placeRow >= 0
                 onClicked: view.browser.restoreRow(view.browser.placeRow)
             }
             ToolButton {
                 objectName: "deleteForGoodButton"
-                label: "Delete for Good"
+                label: qsTr("Delete for Good")
                 active: view.browser.placeRow >= 0
                 onClicked: view.browser.deleteRowForGood(view.browser.placeRow)
             }
             ToolButton {
                 objectName: "emptyTrashButton"
-                label: "Empty Trash"
+                label: qsTr("Empty Trash")
                 active: list.count > 0
                 onClicked: view.browser.emptyTrash()
             }

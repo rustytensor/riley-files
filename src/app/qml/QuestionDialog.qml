@@ -16,10 +16,15 @@ Rectangle {
     visible: browser.question.length > 0
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: browser.question
+
+    // Clicks and the wheel stay here while the question is open; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         onWheel: wheel => wheel.accepted = true
+        Accessible.ignored: true
     }
 
     Rectangle {
@@ -52,8 +57,8 @@ Rectangle {
 
                 Repeater {
                     model: [
-                        { name: "noButton", label: "Cancel  (Esc)", yes: false },
-                        { name: "yesButton", label: "Yes  (Return)", yes: true }
+                        { name: "noButton", label: qsTr("Cancel  (Esc)"), spoken: qsTr("Cancel"), yes: false },
+                        { name: "yesButton", label: qsTr("Yes  (Return)"), spoken: qsTr("Yes"), yes: true }
                     ]
 
                     delegate: Rectangle {
@@ -62,11 +67,15 @@ Rectangle {
                         required property var modelData
 
                         objectName: modelData.name
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData.spoken
+                        Accessible.onPressAction: dialog.browser.answer(modelData.yes)
                         width: label.implicitWidth + Theme.spacing * 3
                         height: Theme.buttonHeight
                         radius: Theme.radius
                         color: modelData.yes ? Theme.accentSoft : (mouse.containsMouse ? Theme.buttonHover : Theme.button)
-                        border.color: modelData.yes ? Theme.accent : "transparent"
+                        Behavior on color { ColorAnimation { duration: Theme.quick } }
+                        border.color: modelData.yes ? Theme.accent : Theme.none
                         border.width: 1
 
                         Text {

@@ -39,27 +39,16 @@ QString nameOf(const QString &path)
     return name.isEmpty() ? path : name;
 }
 
-QString quoted(const QString &text)
-{
-    return QStringLiteral("“%1”").arg(text);
-}
-
 QString folderTitle(const QString &folder)
 {
     if (folder == QDir::homePath())
-        return QStringLiteral("Home");
+        return QCoreApplication::translate("FileOps", "Home");
     return nameOf(folder);
 }
 
 QString count(qint64 n)
 {
     return QLocale::system().toString(n);
-}
-
-QString items(qint64 n, const char *one, const char *many)
-{
-    return n == 1 ? QStringLiteral("1 %1").arg(QLatin1String(one))
-                  : QStringLiteral("%1 %2").arg(count(n), QLatin1String(many));
 }
 
 QString bytes(qint64 n)
@@ -72,17 +61,19 @@ QString describe(const QString &path)
 {
     const QFileInfo info(path);
     QString what;
-    if (info.isSymLink())
-        what = QStringLiteral("link to %1").arg(info.symLinkTarget());
-    else if (info.isDir())
-        what = QStringLiteral("folder with %1")
-                   .arg(items(QDir(path).entryList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden
-                                                   | QDir::System).size(),
-                              "item", "items"));
-    else
+    if (info.isSymLink()) {
+        what = QCoreApplication::translate("FileOps", "link to %1").arg(info.symLinkTarget());
+    } else if (info.isDir()) {
+        const qsizetype n = QDir(path).entryList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden
+                                                 | QDir::System).size();
+        what = n == 1 ? QCoreApplication::translate("FileOps", "folder with 1 item")
+                      : QCoreApplication::translate("FileOps", "folder with %1 items").arg(count(n));
+    } else {
         what = bytes(info.size());
+    }
     const QDateTime modified = info.lastModified();
-    return QStringLiteral("%1, modified %2").arg(what, QLocale::system().toString(modified, QLocale::ShortFormat));
+    return QCoreApplication::translate("FileOps", "%1, modified %2")
+        .arg(what, QLocale::system().toString(modified, QLocale::ShortFormat));
 }
 
 } // namespace
@@ -277,7 +268,7 @@ void FileOps::undo()
 {
     FileJob *job = m_history.undo();
     if (!job) {
-        say(QStringLiteral("Nothing to undo."));
+        say(tr("Nothing to undo."));
         return;
     }
     watch(job);
@@ -288,7 +279,7 @@ void FileOps::redo()
 {
     FileJob *job = m_history.redo();
     if (!job) {
-        say(QStringLiteral("Nothing to redo."));
+        say(tr("Nothing to redo."));
         return;
     }
     watch(job);
@@ -329,20 +320,19 @@ void FileOps::commitRename(const QString &name)
         return;
     }
     if (name.isEmpty() || name.trimmed().isEmpty()) {
-        say(QStringLiteral("A name cannot be empty."));
+        say(tr("A name cannot be empty."));
         return;
     }
     if (!Riley::isValidFileName(name)) {
-        say(name.contains(QLatin1Char('/')) ? QStringLiteral("A name cannot hold “/”.")
-                                            : QStringLiteral("%1 cannot be used as a name.").arg(quoted(name)));
+        say(name.contains(QLatin1Char('/')) ? tr("A name cannot hold “/”.")
+                                            : tr("“%1” cannot be used as a name.").arg(name));
         return;
     }
     const QString folder = QFileInfo(path).absolutePath();
     const QString target = QDir(folder).filePath(name);
     // A name that differs only in case is the same file on some drives; the job tells.
     if (Riley::pathExists(target) && name.compare(old, Qt::CaseInsensitive) != 0) {
-        say(QStringLiteral("%1 is already taken in %2. Choose another name.")
-                .arg(quoted(name), quoted(folderTitle(folder))));
+        say(tr("“%1” is already taken in “%2”. Choose another name.").arg(name, folderTitle(folder)));
         return;
     }
     m_editingPath.clear();
@@ -411,8 +401,7 @@ void FileOps::reportFailures(FileJob *job)
     if (failures.size() == 1)
         say(failures.first().message);
     else
-        say(QStringLiteral("%1 (and %2 more that could not be done)")
-                .arg(failures.first().message, count(failures.size() - 1)));
+        say(tr("%1 (and %2 more that could not be done)").arg(failures.first().message, count(failures.size() - 1)));
 }
 
 FileJob *FileOps::runningJob() const
@@ -437,34 +426,42 @@ QString FileOps::progressTitle() const
     const FileJob *job = runningJob();
     if (!job)
         return {};
+    // How many: "1 item", "3 items", or just "items" while they are still being counted.
     const qint64 files = job->filesTotal();
-    QString what = files > 0 ? items(files, "item", "items") : QStringLiteral("items");
+    const QString n = count(files);
     if (job->kind() == FileJob::Kind::RestoreVersion) {
         const auto *transfer = static_cast<const Riley::TransferJob *>(job);
-        return QStringLiteral("Restoring an earlier version of %1")
-            .arg(quoted(nameOf(transfer->sources().value(0))));
+        return tr("Restoring an earlier version of “%1”").arg(nameOf(transfer->sources().value(0)));
     }
     if (const auto *transfer = qobject_cast<const Riley::TransferJob *>(job)) {
-        const QString into = quoted(folderTitle(transfer->destination()));
-        if (transfer->sources().size() == 1)
-            what = quoted(nameOf(transfer->sources().first()));
-        return job->kind() == FileJob::Kind::Copy ? QStringLiteral("Copying %1 to %2").arg(what, into)
-                                                   : QStringLiteral("Moving %1 to %2").arg(what, into);
+        const QString into = folderTitle(transfer->destination());
+        const bool copy = job->kind() == FileJob::Kind::Copy;
+        if (transfer->sources().size() == 1) {
+            const QString name = nameOf(transfer->sources().first());
+            return copy ? tr("Copying “%1” to “%2”").arg(name, into) : tr("Moving “%1” to “%2”").arg(name, into);
+        }
+        if (files == 1)
+            return copy ? tr("Copying 1 item to “%1”").arg(into) : tr("Moving 1 item to “%1”").arg(into);
+        if (files > 1)
+            return copy ? tr("Copying %1 items to “%2”").arg(n, into) : tr("Moving %1 items to “%2”").arg(n, into);
+        return copy ? tr("Copying items to “%1”").arg(into) : tr("Moving items to “%1”").arg(into);
     }
     switch (job->kind()) {
     case FileJob::Kind::Trash:
-        return QStringLiteral("Moving %1 to the trash").arg(what);
+        return files == 1 ? tr("Moving 1 item to the trash")
+                          : (files > 1 ? tr("Moving %1 items to the trash").arg(n) : tr("Moving items to the trash"));
     case FileJob::Kind::Restore:
-        return QStringLiteral("Restoring %1 from the trash").arg(what);
+        return files == 1 ? tr("Restoring 1 item from the trash")
+                          : (files > 1 ? tr("Restoring %1 items from the trash").arg(n)
+                                       : tr("Restoring items from the trash"));
     case FileJob::Kind::Delete:
-        return QStringLiteral("Deleting %1").arg(what);
+        return files == 1 ? tr("Deleting 1 item") : (files > 1 ? tr("Deleting %1 items").arg(n) : tr("Deleting items"));
     case FileJob::Kind::Undo:
-        return static_cast<const Riley::UndoJob *>(job)->isRedo() ? QStringLiteral("Redoing")
-                                                                    : QStringLiteral("Undoing");
+        return static_cast<const Riley::UndoJob *>(job)->isRedo() ? tr("Redoing") : tr("Undoing");
     case FileJob::Kind::Rename:
-        return QStringLiteral("Renaming");
+        return tr("Renaming");
     case FileJob::Kind::NewFolder:
-        return QStringLiteral("Making a folder");
+        return tr("Making a folder");
     case FileJob::Kind::Copy:
     case FileJob::Kind::Move:
     case FileJob::Kind::RestoreVersion:
@@ -479,10 +476,10 @@ QString FileOps::progressDetail() const
     if (!job)
         return {};
     if (job->stopRequested())
-        return QStringLiteral("Stopping…");
-    QString text = QStringLiteral("%1 of %2").arg(count(job->filesDone()), count(job->filesTotal()));
+        return tr("Stopping…");
+    QString text = tr("%1 of %2").arg(count(job->filesDone()), count(job->filesTotal()));
     if (job->bytesTotal() > 0)
-        text += QStringLiteral("  ·  %1 of %2").arg(bytes(job->bytesDone()), bytes(job->bytesTotal()));
+        text += QStringLiteral("  ·  ") + tr("%1 of %2").arg(bytes(job->bytesDone()), bytes(job->bytesTotal()));
     return text;
 }
 
@@ -523,10 +520,11 @@ QString FileOps::clashTitle() const
     if (!m_asking)
         return {};
     const QString target = m_asking->clashTarget();
-    const QString kind = QFileInfo(target).isDir() && !QFileInfo(target).isSymLink() ? QStringLiteral("A folder")
-                                                                                      : QStringLiteral("A file");
-    return QStringLiteral("%1 named %2 is already in %3")
-        .arg(kind, quoted(nameOf(target)), quoted(folderTitle(QFileInfo(target).absolutePath())));
+    const QString name = nameOf(target);
+    const QString folder = folderTitle(QFileInfo(target).absolutePath());
+    return QFileInfo(target).isDir() && !QFileInfo(target).isSymLink()
+               ? tr("A folder named “%1” is already in “%2”").arg(name, folder)
+               : tr("A file named “%1” is already in “%2”").arg(name, folder);
 }
 
 QString FileOps::clashOld() const

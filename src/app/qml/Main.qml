@@ -17,7 +17,7 @@ Window {
     minimumWidth: 480
     minimumHeight: 320
     visible: true
-    title: root.browser.folderName.length > 0 ? root.browser.folderName + " – Files" : "Files"
+    title: root.browser.folderName.length > 0 ? qsTr("%1 – Files").arg(root.browser.folderName) : qsTr("Files")
     color: Theme.window
 
     Item {
@@ -112,7 +112,7 @@ Window {
             Text {
                 id: renameLabel
                 anchors { left: parent.left; leftMargin: Theme.spacing * 1.5; verticalCenter: parent.verticalCenter }
-                text: "Rename to"
+                text: qsTr("Rename to")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontNormal
             }
@@ -145,6 +145,7 @@ Window {
         }
 
         PreferencesPanel {
+            id: preferences
             anchors.fill: parent
             browser: root.browser
         }
@@ -172,6 +173,8 @@ Window {
             visible: root.browser.actions.menuOpen
             acceptedButtons: Qt.AllButtons
             onPressed: root.browser.actions.closeMenu()
+            // Not a control: Escape closes the menu too.
+            Accessible.ignored: true
         }
 
         MenuPopups {
@@ -197,9 +200,12 @@ Window {
         Math.ceil(Theme.spacing * 3.75 + 16 + 1),
         Math.ceil(Theme.spacing * 3.25 + Theme.iconSize + 10))
 
-    // The keys go back to the browser, or to the search field while it is shown.
+    // The keys go back to the browser: to the Preferences row they are on while the Preferences are
+    // open, to the search field while it is shown, or else to the window.
     function giveKeysBack() {
-        if (root.browser.searchShown)
+        if (root.browser.prefs.shown && root.browser.prefs.editing < 0)
+            preferences.focusCursor()
+        else if (root.browser.searchShown)
             header.focusSearch()
         else
             keys.forceActiveFocus()

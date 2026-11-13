@@ -147,3 +147,26 @@ target_link_libraries(versionsui_tests PRIVATE riley-ui riley_warnings Qt6::Test
 
 add_test(NAME versionsui_tests COMMAND versionsui_tests)
 set_tests_properties(versionsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The look of the window: the colours following the Riley desktop's theme as it switches, no
+# colour outside Theme.qml, the window at twice the scale, how fast the program starts, and
+# pictures of the main views in both variants (to RILEY_SHOTS when it is set).
+add_executable(lookui_tests lookui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(lookui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+target_compile_definitions(lookui_tests PRIVATE RILEY_FILES_BINARY="$<TARGET_FILE:riley-files>")
+add_dependencies(lookui_tests riley-files)
+
+add_test(NAME lookui_tests COMMAND lookui_tests)
+set_tests_properties(lookui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The window in German and French from the system's language, catalogs that translate every
+# string the sources mark (checked with Qt's own lupdate against the sources), and every control
+# in the window and its dialogs named for assistive technology and reached with Tab.
+add_executable(i18nui_tests i18nui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(i18nui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+target_compile_definitions(i18nui_tests PRIVATE
+    RILEY_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+    RILEY_LUPDATE="$<TARGET_FILE:Qt6::lupdate>")
+
+add_test(NAME i18nui_tests COMMAND i18nui_tests)
+set_tests_properties(i18nui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

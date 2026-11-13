@@ -7,6 +7,7 @@
 #include "snapshots.h"
 #include "trash.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 
@@ -46,7 +47,7 @@ void VersionRestoreJob::run()
         return;
     }
     if (!pathExists(m_copyPath)) {
-        addFailure(m_copyPath, QStringLiteral("This version of “%1” is not there any more").arg(name));
+        addFailure(m_copyPath, QCoreApplication::translate("VersionJobs", "This version of “%1” is not there any more").arg(name));
         return;
     }
     const bool isFolder = QFileInfo(m_copyPath).isDir() && !QFileInfo(m_copyPath).isSymLink();
@@ -55,7 +56,7 @@ void VersionRestoreJob::run()
             QString why;
             const std::optional<TrashEntry> trashed = Trash::put(m_livePath, &why);
             if (!trashed) {
-                addFailure(m_livePath, QStringLiteral("“%1” was not restored: %2").arg(name, why));
+                addFailure(m_livePath, QCoreApplication::translate("VersionJobs", "“%1” was not restored: %2").arg(name, why));
                 return;
             }
             addStep(JobStep::Trashed, m_livePath, trashed->trashedPath);

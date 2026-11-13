@@ -5,6 +5,7 @@
 
 #include "filenames.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -32,7 +33,7 @@ bool makeFolder(const QString &path, QString *error)
     if (::mkdir(QFile::encodeName(path).constData(), 0700) == 0 || errno == EEXIST)
         return true;
     if (error)
-        *error = QStringLiteral("Cannot make the trash folder %1: %2").arg(path, systemError(errno));
+        *error = QCoreApplication::translate("Trash", "Cannot make the trash folder %1: %2").arg(path, systemError(errno));
     return false;
 }
 
@@ -109,7 +110,7 @@ bool claimDriveTrash(const QString &trash, QString *error)
     if (::lstat(p.constData(), &st) == 0) {
         if (!S_ISDIR(st.st_mode) || st.st_uid != ::getuid()) {
             if (error)
-                *error = QStringLiteral("The trash folder %1 is not yours, so nothing is put in it").arg(trash);
+                *error = QCoreApplication::translate("Trash", "The trash folder %1 is not yours, so nothing is put in it").arg(trash);
             return false;
         }
         return true;
@@ -117,7 +118,7 @@ bool claimDriveTrash(const QString &trash, QString *error)
     if (::mkdir(p.constData(), 0700) == 0 || errno == EEXIST)
         return true;
     if (error)
-        *error = QStringLiteral("This drive has no trash and one cannot be made (%1)").arg(systemError(errno));
+        *error = QCoreApplication::translate("Trash", "This drive has no trash and one cannot be made (%1)").arg(systemError(errno));
     return false;
 }
 
@@ -164,7 +165,7 @@ QString Trash::trashPathFor(const QString &path, QString *error)
     struct stat st;
     if (::lstat(QFile::encodeName(original).constData(), &st) != 0) {
         if (error)
-            *error = QStringLiteral("“%1” is not there any more").arg(QFileInfo(original).fileName());
+            *error = QCoreApplication::translate("Trash", "“%1” is not there any more").arg(QFileInfo(original).fileName());
         return QString();
     }
     const QString home = homeTrashPath();
@@ -174,7 +175,7 @@ QString Trash::trashPathFor(const QString &path, QString *error)
     const QString top = topDirOf(original);
     if (top.isEmpty() || top == original) {
         if (error)
-            *error = QStringLiteral("“%1” is where a drive is mounted and cannot go into the trash")
+            *error = QCoreApplication::translate("Trash", "“%1” is where a drive is mounted and cannot go into the trash")
                          .arg(QFileInfo(original).fileName());
         return QString();
     }
@@ -206,7 +207,7 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
     const QString name = given.fileName();
     if (!pathExists(original)) {
         if (error)
-            *error = QStringLiteral("“%1” is not there any more").arg(name);
+            *error = QCoreApplication::translate("Trash", "“%1” is not there any more").arg(name);
         return std::nullopt;
     }
     const QString trash = trashPathFor(original, error);
@@ -214,7 +215,7 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
         return std::nullopt;
     if (isSameOrInside(trash, original)) {
         if (error)
-            *error = QStringLiteral("“%1” holds the trash itself and cannot go into it").arg(name);
+            *error = QCoreApplication::translate("Trash", "“%1” holds the trash itself and cannot go into it").arg(name);
         return std::nullopt;
     }
     const bool home = trash == homeTrashPath();
@@ -225,7 +226,7 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
         const QString dataDir = QFileInfo(trash).absolutePath();
         if (!QFileInfo(dataDir).isDir() && !QDir().mkpath(dataDir)) {
             if (error)
-                *error = QStringLiteral("Cannot make the folder %1 for the trash").arg(dataDir);
+                *error = QCoreApplication::translate("Trash", "Cannot make the folder %1 for the trash").arg(dataDir);
             return std::nullopt;
         }
         if (!makeFolder(trash, error))
@@ -261,7 +262,7 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
             if (errno == EEXIST)
                 continue;
             if (error)
-                *error = QStringLiteral("Cannot write to the trash: %1").arg(systemError(errno));
+                *error = QCoreApplication::translate("Trash", "Cannot write to the trash: %1").arg(systemError(errno));
             return std::nullopt;
         }
         if (pathExists(trashedPath)) { // a leftover without its info file: leave it alone
@@ -275,7 +276,7 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
         if (!written) {
             ::unlink(QFile::encodeName(infoPath).constData());
             if (error)
-                *error = QStringLiteral("Cannot write to the trash: %1").arg(systemError(writeErrno));
+                *error = QCoreApplication::translate("Trash", "Cannot write to the trash: %1").arg(systemError(writeErrno));
             return std::nullopt;
         }
         if (::rename(QFile::encodeName(original).constData(), QFile::encodeName(trashedPath).constData()) != 0) {
@@ -283,15 +284,15 @@ std::optional<TrashEntry> Trash::put(const QString &path, QString *error)
             ::unlink(QFile::encodeName(infoPath).constData());
             if (error) {
                 *error = moveErrno == EXDEV
-                             ? QStringLiteral("“%1” is on another drive than the trash").arg(name)
-                             : QStringLiteral("Cannot move “%1” to the trash: %2").arg(name, systemError(moveErrno));
+                             ? QCoreApplication::translate("Trash", "“%1” is on another drive than the trash").arg(name)
+                             : QCoreApplication::translate("Trash", "Cannot move “%1” to the trash: %2").arg(name, systemError(moveErrno));
             }
             return std::nullopt;
         }
         return TrashEntry{trashedPath, infoPath, original, now};
     }
     if (error)
-        *error = QStringLiteral("The trash has no free name for “%1”").arg(name);
+        *error = QCoreApplication::translate("Trash", "The trash has no free name for “%1”").arg(name);
     return std::nullopt;
 }
 
@@ -338,13 +339,13 @@ std::optional<QString> Trash::restore(const QString &trashedPath, const QString 
     const std::optional<Place> place = locate(trashedPath);
     if (!place) {
         if (error)
-            *error = QStringLiteral("“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
+            *error = QCoreApplication::translate("Trash", "“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
         return std::nullopt;
     }
     const QString inTrash = place->filePath();
     if (!pathExists(inTrash)) {
         if (error)
-            *error = QStringLiteral("“%1” is no longer in the trash").arg(place->name);
+            *error = QCoreApplication::translate("Trash", "“%1” is no longer in the trash").arg(place->name);
         return std::nullopt;
     }
     QString target = destination.isEmpty() ? QString() : QDir::cleanPath(QFileInfo(destination).absoluteFilePath());
@@ -352,7 +353,7 @@ std::optional<QString> Trash::restore(const QString &trashedPath, const QString 
         const std::optional<TrashEntry> entry = entryFor(inTrash);
         if (!entry) {
             if (error)
-                *error = QStringLiteral("The trash does not say where “%1” came from").arg(place->name);
+                *error = QCoreApplication::translate("Trash", "The trash does not say where “%1” came from").arg(place->name);
             return std::nullopt;
         }
         target = entry->originalPath;
@@ -361,15 +362,15 @@ std::optional<QString> Trash::restore(const QString &trashedPath, const QString 
     const QString parent = QFileInfo(target).absolutePath();
     if (!QFileInfo(parent).isDir() && !QDir().mkpath(parent)) {
         if (error)
-            *error = QStringLiteral("Cannot make the folder %1 again to put “%2” back").arg(parent, targetName);
+            *error = QCoreApplication::translate("Trash", "Cannot make the folder %1 again to put “%2” back").arg(parent, targetName);
         return std::nullopt;
     }
     const int e = renameNoReplace(inTrash, target);
     if (e != 0) {
         if (error) {
-            *error = e == EEXIST ? QStringLiteral("There is already something named “%1” in %2").arg(targetName, parent)
-                     : e == EXDEV ? QStringLiteral("“%1” cannot go back to %2: it is on another drive now").arg(targetName, parent)
-                                  : QStringLiteral("Cannot put “%1” back: %2").arg(targetName, systemError(e));
+            *error = e == EEXIST ? QCoreApplication::translate("Trash", "There is already something named “%1” in %2").arg(targetName, parent)
+                     : e == EXDEV ? QCoreApplication::translate("Trash", "“%1” cannot go back to %2: it is on another drive now").arg(targetName, parent)
+                                  : QCoreApplication::translate("Trash", "Cannot put “%1” back: %2").arg(targetName, systemError(e));
         }
         return std::nullopt;
     }
@@ -382,7 +383,7 @@ bool Trash::erase(const QString &trashedPath, QString *error)
     const std::optional<Place> place = locate(trashedPath);
     if (!place) {
         if (error)
-            *error = QStringLiteral("“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
+            *error = QCoreApplication::translate("Trash", "“%1” is not in the trash").arg(QFileInfo(trashedPath).fileName());
         return false;
     }
     const QString inTrash = place->filePath();
@@ -399,14 +400,14 @@ bool Trash::removeForGood(const QString &path, QString *error)
     struct stat st;
     if (::lstat(p.constData(), &st) != 0) {
         if (error)
-            *error = QStringLiteral("“%1” is not there any more").arg(QFileInfo(path).fileName());
+            *error = QCoreApplication::translate("Trash", "“%1” is not there any more").arg(QFileInfo(path).fileName());
         return false;
     }
     const int e = S_ISDIR(st.st_mode) ? ::nftw(p.constData(), removeOne, 32, FTW_DEPTH | FTW_PHYS)
                                       : (::unlink(p.constData()) == 0 ? 0 : errno);
     if (e != 0) {
         if (error) {
-            *error = QStringLiteral("Cannot delete “%1”: %2")
+            *error = QCoreApplication::translate("Trash", "Cannot delete “%1”: %2")
                          .arg(QFileInfo(path).fileName(), e > 0 ? systemError(e) : systemError(errno));
         }
         return false;

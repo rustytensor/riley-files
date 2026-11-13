@@ -3,6 +3,7 @@
 
 #include "snapshots.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -149,7 +150,7 @@ QByteArray linkTarget(const QByteArray &path)
 
 QString Snapshots::readOnlyMessage()
 {
-    return QStringLiteral("Snapshots can't be changed.");
+    return QCoreApplication::translate("Snapshots", "Snapshots can't be changed.");
 }
 
 bool Snapshots::isInSnapshot(const QString &path)

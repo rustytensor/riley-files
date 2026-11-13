@@ -69,6 +69,8 @@ Item {
         objectName: "gridContextArea"
         anchors.fill: view
         acceptedButtons: Qt.RightButton
+        Accessible.role: Accessible.List
+        Accessible.name: qsTr("Files in “%1”").arg(grid.browser.folderName)
         onPressed: mouse => {
             const row = view.indexAt(mouse.x + view.contentX, mouse.y + view.contentY)
             const at = mapToItem(null, mouse.x, mouse.y)
@@ -83,7 +85,7 @@ Item {
         width: Math.min(parent.width - Theme.spacing * 4, 420)
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: grid.browser.model.error.length > 0 ? grid.browser.model.error : "This folder is empty."
+        text: grid.browser.model.error.length > 0 ? grid.browser.model.error : qsTr("This folder is empty.")
         color: Theme.textMuted
         font.pixelSize: Theme.fontNormal
     }

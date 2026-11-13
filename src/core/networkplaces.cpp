@@ -3,6 +3,7 @@
 
 #include "networkplaces.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
@@ -169,14 +170,14 @@ bool NetworkModel::connectTo(const QString &uri, QString *error)
     };
     const QString address = uri.trimmed();
     if (!isConnectable(address))
-        return fail(QStringLiteral("“%1” cannot be connected to. Give an sftp://, smb://, ftp://, dav:// or davs:// "
+        return fail(QCoreApplication::translate("NetworkPlaces", "“%1” cannot be connected to. Give an sftp://, smb://, ftp://, dav:// or davs:// "
                                    "address with a server name.")
                         .arg(address));
     if (m_process)
-        return fail(QStringLiteral("A connection is being made already."));
+        return fail(QCoreApplication::translate("NetworkPlaces", "A connection is being made already."));
     const QString gio = QStandardPaths::findExecutable(QStringLiteral("gio"));
     if (gio.isEmpty())
-        return fail(QStringLiteral("Connecting to a server needs gio (glib2), which was not found."));
+        return fail(QCoreApplication::translate("NetworkPlaces", "Connecting to a server needs gio (glib2), which was not found."));
 
     m_uri = address;
     m_process = new QProcess(this);
@@ -189,16 +190,16 @@ bool NetworkModel::connectTo(const QString &uri, QString *error)
         const bool ok = status == QProcess::NormalExit && exitCode == 0;
         reload();
         emit connectFinished(m_uri, ok,
-                             ok ? QStringLiteral("Connected to %1.").arg(QUrl(m_uri).host())
-                                : QStringLiteral("Could not connect to %1: %2")
-                                      .arg(m_uri, said.isEmpty() ? QStringLiteral("gio mount failed.") : said));
+                             ok ? QCoreApplication::translate("NetworkPlaces", "Connected to %1.").arg(QUrl(m_uri).host())
+                                : QCoreApplication::translate("NetworkPlaces", "Could not connect to %1: %2")
+                                      .arg(m_uri, said.isEmpty() ? QCoreApplication::translate("NetworkPlaces", "gio mount failed.") : said));
     });
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError failure) {
         if (failure != QProcess::FailedToStart || !m_process)
             return;
         QProcess *process = std::exchange(m_process, nullptr);
         process->deleteLater();
-        emit connectFinished(m_uri, false, QStringLiteral("gio could not be started."));
+        emit connectFinished(m_uri, false, QCoreApplication::translate("NetworkPlaces", "gio could not be started."));
     });
     // The address is one argument after "mount"; no shell ever reads it.
     m_process->start(gio, {QStringLiteral("mount"), address});

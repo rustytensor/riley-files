@@ -18,9 +18,14 @@ Rectangle {
     visible: chooser.shown
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: chooser.title
+
+    // A click outside the card closes it, as Escape does; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        Accessible.ignored: true
         onClicked: dialog.chooser.close()
         onWheel: wheel => wheel.accepted = true
     }
@@ -35,8 +40,10 @@ Rectangle {
         border.color: Theme.cardBorder
         border.width: 1
 
+        // Clicks on the card stay on it.
         MouseArea {
             anchors.fill: parent
+            Accessible.ignored: true
         }
 
         Text {
@@ -95,10 +102,17 @@ Rectangle {
                 readonly property string label: modelData.label
                 readonly property bool current: index === dialog.chooser.cursor
 
+                Accessible.role: Accessible.ListItem
+                Accessible.name: label
+                Accessible.description: modelData.detail ?? ""
+                Accessible.selected: current
+                Accessible.onPressAction: dialog.chooser.choose(index)
+
                 width: list.width
                 height: Theme.rowHeight
                 radius: Theme.radius
-                color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+                color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+                Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                 Image {
                     id: picture
@@ -146,7 +160,7 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 visible: list.count === 0
-                text: dialog.chooser.loading ? "Looking…" : "Nothing matches"
+                text: dialog.chooser.loading ? qsTr("Looking…") : qsTr("Nothing matches")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontNormal
             }

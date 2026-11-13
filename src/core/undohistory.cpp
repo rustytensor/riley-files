@@ -7,6 +7,7 @@
 #include "jobqueue.h"
 #include "trash.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 
@@ -69,7 +70,7 @@ bool check(const JobStep &step, Plan *plan, QString *why)
     case JobStep::Created:
     case JobStep::Restored:
         if (!plan->exists(step.to)) {
-            *why = QStringLiteral("“%1” is not there any more").arg(nameOf(step.to));
+            *why = QCoreApplication::translate("UndoHistory", "“%1” is not there any more").arg(nameOf(step.to));
             return false;
         }
         plan->remove(step.to);
@@ -78,18 +79,18 @@ bool check(const JobStep &step, Plan *plan, QString *why)
     case JobStep::Trashed:
         if (!plan->exists(step.to)) {
             *why = step.kind == JobStep::Trashed
-                       ? QStringLiteral("“%1” is no longer in the trash").arg(nameOf(step.from))
-                       : QStringLiteral("“%1” is not there any more").arg(nameOf(step.to));
+                       ? QCoreApplication::translate("UndoHistory", "“%1” is no longer in the trash").arg(nameOf(step.from))
+                       : QCoreApplication::translate("UndoHistory", "“%1” is not there any more").arg(nameOf(step.to));
             return false;
         }
         if (plan->exists(step.from)) {
-            *why = QStringLiteral("There is already something named “%1” in “%2”")
+            *why = QCoreApplication::translate("UndoHistory", "There is already something named “%1” in “%2”")
                        .arg(nameOf(step.from), nameOf(parentOf(step.from)));
             return false;
         }
         // A thing restored from the trash gets its folder made again; a moved one does not.
         if (step.kind == JobStep::Moved && !plan->isFolder(parentOf(step.from))) {
-            *why = QStringLiteral("The folder “%1” is not there any more").arg(nameOf(parentOf(step.from)));
+            *why = QCoreApplication::translate("UndoHistory", "The folder “%1” is not there any more").arg(nameOf(parentOf(step.from)));
             return false;
         }
         plan->remove(step.to);
@@ -97,12 +98,12 @@ bool check(const JobStep &step, Plan *plan, QString *why)
         return true;
     case JobStep::FolderRemoved:
         if (plan->exists(step.from)) {
-            *why = QStringLiteral("There is already something named “%1” in “%2”")
+            *why = QCoreApplication::translate("UndoHistory", "There is already something named “%1” in “%2”")
                        .arg(nameOf(step.from), nameOf(parentOf(step.from)));
             return false;
         }
         if (!plan->isFolder(parentOf(step.from))) {
-            *why = QStringLiteral("The folder “%1” is not there any more").arg(nameOf(parentOf(step.from)));
+            *why = QCoreApplication::translate("UndoHistory", "The folder “%1” is not there any more").arg(nameOf(parentOf(step.from)));
             return false;
         }
         plan->add(step.from);
@@ -122,7 +123,7 @@ UndoJob::UndoJob(const QList<JobStep> &steps, bool redo, QObject *parent)
 
 void UndoJob::run()
 {
-    const QString cannot = m_redo ? QStringLiteral("Cannot redo") : QStringLiteral("Cannot undo");
+    const QString cannot = m_redo ? QCoreApplication::translate("UndoHistory", "Cannot redo") : QCoreApplication::translate("UndoHistory", "Cannot undo");
     setTotals(m_steps.size(), 0);
 
     Plan plan;
@@ -150,9 +151,9 @@ void UndoJob::run()
             if (const int e = renameNoReplace(step.to, step.from); e == 0)
                 addStep(JobStep::Moved, step.to, step.from);
             else if (e == EXDEV)
-                why = QStringLiteral("“%1” is on another drive now").arg(nameOf(step.to));
+                why = QCoreApplication::translate("UndoHistory", "“%1” is on another drive now").arg(nameOf(step.to));
             else
-                why = QStringLiteral("“%1” cannot be moved back: %2")
+                why = QCoreApplication::translate("UndoHistory", "“%1” cannot be moved back: %2")
                           .arg(nameOf(step.to), QString::fromLocal8Bit(std::strerror(e)));
             break;
         case JobStep::Trashed:
@@ -163,7 +164,7 @@ void UndoJob::run()
             if (QDir().mkdir(step.from))
                 addStep(JobStep::Created, QString(), step.from);
             else
-                why = QStringLiteral("The folder “%1” cannot be made again").arg(nameOf(step.from));
+                why = QCoreApplication::translate("UndoHistory", "The folder “%1” cannot be made again").arg(nameOf(step.from));
             break;
         }
         if (!why.isEmpty()) {
@@ -186,14 +187,14 @@ UndoHistory::UndoHistory(JobQueue *queue, QObject *parent)
 QString UndoHistory::kindText(FileJob::Kind kind)
 {
     switch (kind) {
-    case FileJob::Kind::Copy: return QStringLiteral("Copy");
-    case FileJob::Kind::Move: return QStringLiteral("Move");
-    case FileJob::Kind::Rename: return QStringLiteral("Rename");
-    case FileJob::Kind::NewFolder: return QStringLiteral("New Folder");
-    case FileJob::Kind::Trash: return QStringLiteral("Move to Trash");
-    case FileJob::Kind::Restore: return QStringLiteral("Restore from Trash");
-    case FileJob::Kind::Delete: return QStringLiteral("Delete");
-    case FileJob::Kind::RestoreVersion: return QStringLiteral("Restore Version");
+    case FileJob::Kind::Copy: return QCoreApplication::translate("UndoHistory", "Copy");
+    case FileJob::Kind::Move: return QCoreApplication::translate("UndoHistory", "Move");
+    case FileJob::Kind::Rename: return QCoreApplication::translate("UndoHistory", "Rename");
+    case FileJob::Kind::NewFolder: return QCoreApplication::translate("UndoHistory", "New Folder");
+    case FileJob::Kind::Trash: return QCoreApplication::translate("UndoHistory", "Move to Trash");
+    case FileJob::Kind::Restore: return QCoreApplication::translate("UndoHistory", "Restore from Trash");
+    case FileJob::Kind::Delete: return QCoreApplication::translate("UndoHistory", "Delete");
+    case FileJob::Kind::RestoreVersion: return QCoreApplication::translate("UndoHistory", "Restore Version");
     case FileJob::Kind::Undo: break;
     }
     return QString();
@@ -201,12 +202,12 @@ QString UndoHistory::kindText(FileJob::Kind kind)
 
 QString UndoHistory::undoText() const
 {
-    return m_undo.isEmpty() ? QString() : QStringLiteral("Undo %1").arg(kindText(m_undo.last().kind));
+    return m_undo.isEmpty() ? QString() : QCoreApplication::translate("UndoHistory", "Undo %1").arg(kindText(m_undo.last().kind));
 }
 
 QString UndoHistory::redoText() const
 {
-    return m_redo.isEmpty() ? QString() : QStringLiteral("Redo %1").arg(kindText(m_redo.last().kind));
+    return m_redo.isEmpty() ? QString() : QCoreApplication::translate("UndoHistory", "Redo %1").arg(kindText(m_redo.last().kind));
 }
 
 void UndoHistory::push(QList<Entry> *stack, const Entry &entry)

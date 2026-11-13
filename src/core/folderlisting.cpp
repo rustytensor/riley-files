@@ -5,6 +5,7 @@
 
 #include "entryorder.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
@@ -39,11 +40,11 @@ ListingResult listFolder(const QString &path, const ListingOptions &options, Sor
 
     const QFileInfo folder(path);
     if (!folder.isDir()) {
-        result.error = QStringLiteral("Not a folder: %1").arg(path);
+        result.error = QCoreApplication::translate("FolderListing", "Not a folder: %1").arg(path);
         return result;
     }
     if (!folder.isReadable()) {
-        result.error = QStringLiteral("No permission to read %1").arg(path);
+        result.error = QCoreApplication::translate("FolderListing", "No permission to read %1").arg(path);
         return result;
     }
 

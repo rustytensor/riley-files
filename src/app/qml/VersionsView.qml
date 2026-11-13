@@ -34,9 +34,9 @@ Rectangle {
                 right: hint.left; rightMargin: Theme.spacing
                 verticalCenter: parent.verticalCenter
             }
-            text: view.versions.loading && list.count === 0 ? "Looking for earlier versions of “" + view.ofName + "”…"
-                  : list.count === 0 ? "There are no earlier versions of “" + view.ofName + "”."
-                  : "Earlier versions of “" + view.ofName + "”, newest first"
+            text: view.versions.loading && list.count === 0 ? qsTr("Looking for earlier versions of “%1”…").arg(view.ofName)
+                  : list.count === 0 ? qsTr("There are no earlier versions of “%1”.").arg(view.ofName)
+                  : qsTr("Earlier versions of “%1”, newest first").arg(view.ofName)
             textFormat: Text.PlainText
             elide: Text.ElideMiddle
             color: Theme.textFaint
@@ -46,7 +46,7 @@ Rectangle {
         Text {
             id: hint
             anchors { right: parent.right; rightMargin: Theme.spacing * 1.5; verticalCenter: parent.verticalCenter }
-            text: "Return restores  ·  Esc closes"
+            text: qsTr("Return restores  ·  Esc closes")
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
         }
@@ -85,8 +85,8 @@ Rectangle {
             rowIndex: index
             title: dateText
             where: description
-            wherePrefix: ""
-            when: isDir ? "folder" : ""
+            whereFormat: "%1"
+            when: isDir ? qsTr("folder") : ""
             isFolder: isDir
             onMenuAsked: (x, y) => version.browser.versionMenuAt(version.index, x, y)
         }

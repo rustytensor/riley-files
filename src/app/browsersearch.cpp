@@ -149,18 +149,21 @@ QString Browser::searchStatus() const
         return {};
     const int count = m_search->count();
     if (count == 0)
-        return m_search->isRunning() ? QStringLiteral("Searching…") : QStringLiteral("Nothing found.");
+        return m_search->isRunning() ? tr("Searching…") : tr("Nothing found.");
     if (m_search->isCapped())
         return m_search->note();
-    const QString found = count == 1 ? QStringLiteral("1 found") : QStringLiteral("%1 found").arg(QLocale().toString(count));
-    return m_search->isRunning() ? found + QStringLiteral(", still searching…") : found + QLatin1Char('.');
+    if (count == 1)
+        return m_search->isRunning() ? tr("1 found, still searching…") : tr("1 found.");
+    const QString number = QLocale().toString(count);
+    return m_search->isRunning() ? tr("%1 found, still searching…").arg(number) : tr("%1 found.").arg(number);
 }
 
 QString Browser::searchHint() const
 {
-    const QString where = folderName().isEmpty() ? QStringLiteral("this folder") : QStringLiteral("“%1”").arg(folderName());
-    return m_searchContents ? QStringLiteral("Find inside the files in %1").arg(where)
-                            : QStringLiteral("Find names in %1").arg(where);
+    if (folderName().isEmpty())
+        return m_searchContents ? tr("Find inside the files in this folder") : tr("Find names in this folder");
+    return m_searchContents ? tr("Find inside the files in “%1”").arg(folderName())
+                            : tr("Find names in “%1”").arg(folderName());
 }
 
 bool Browser::somethingInFront() const

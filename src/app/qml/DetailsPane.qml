@@ -18,6 +18,9 @@ Rectangle {
     color: Theme.sidebar
     clip: true
 
+    Accessible.role: Accessible.Pane
+    Accessible.name: qsTr("Details")
+
     Rectangle {
         anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
         width: 1
@@ -106,15 +109,15 @@ Rectangle {
 
             Rectangle { width: parent.width; height: 1; color: Theme.divider }
 
-            Field { label: "Kind"; value: pane.details.kind; valueName: "detailsKind" }
+            Field { label: qsTr("Kind"); value: pane.details.kind; valueName: "detailsKind" }
             Field {
-                label: pane.details.isDir ? "Holds" : "Size"
+                label: pane.details.isDir ? qsTr("Holds") : qsTr("Size")
                 value: pane.details.sizeText
                 valueName: "detailsSize"
             }
-            Field { label: "Dimensions"; value: pane.details.imageSize; valueName: "detailsImageSize" }
-            Field { label: "Modified"; value: pane.details.modifiedText; valueName: "detailsModified" }
-            Field { label: "Permissions"; value: pane.details.permissions; valueName: "detailsPermissions" }
+            Field { label: qsTr("Dimensions"); value: pane.details.imageSize; valueName: "detailsImageSize" }
+            Field { label: qsTr("Modified"); value: pane.details.modifiedText; valueName: "detailsModified" }
+            Field { label: qsTr("Permissions"); value: pane.details.permissions; valueName: "detailsPermissions" }
 
             // The earlier versions, when there are snapshots above it: the newest few, and the
             // whole list (Alt+V) one click away.
@@ -132,7 +135,7 @@ Rectangle {
                 Rectangle { width: parent.width; height: 1; color: Theme.divider }
 
                 Text {
-                    text: "Previous Versions"
+                    text: qsTr("Previous Versions")
                     color: Theme.textFaint
                     font.pixelSize: Theme.fontSmall
                     font.weight: Font.DemiBold
@@ -143,10 +146,10 @@ Rectangle {
                 Text {
                     objectName: "detailsVersionsCount"
                     width: parent.width
-                    text: versionsSection.versions.loading && versionsSection.versions.count === 0 ? "Looking…"
-                          : versionsSection.versions.count === 0 ? "No earlier versions"
-                          : versionsSection.versions.count === 1 ? "1 earlier version"
-                          : versionsSection.versions.count + " earlier versions"
+                    text: versionsSection.versions.loading && versionsSection.versions.count === 0 ? qsTr("Looking…")
+                          : versionsSection.versions.count === 0 ? qsTr("No earlier versions")
+                          : versionsSection.versions.count === 1 ? qsTr("1 earlier version")
+                          : qsTr("%1 earlier versions").arg(versionsSection.versions.count)
                     color: Theme.text
                     font.pixelSize: Theme.fontNormal
                 }
@@ -177,11 +180,16 @@ Rectangle {
                     radius: Theme.radius
                     visible: versionsSection.versions.count > 0
                     color: showMouse.containsMouse ? Theme.buttonHover : Theme.button
+                    Accessible.role: Accessible.Button
+                    Accessible.name: qsTr("Show Versions")
+                    Accessible.description: qsTr("Alt+V")
+                    Accessible.onPressAction: pane.browser.showVersions()
+                    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                     Text {
                         id: showText
                         anchors.centerIn: parent
-                        text: "Show Versions  (Alt+V)"
+                        text: qsTr("Show Versions  (Alt+V)")
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall
                     }

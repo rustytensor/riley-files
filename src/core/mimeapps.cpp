@@ -3,6 +3,7 @@
 
 #include "mimeapps.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -348,7 +349,7 @@ bool MimeApps::launch(const DesktopEntry &app, const QStringList &paths, QString
     const QList<QStringList> lines = app.commandLines(paths);
     if (lines.isEmpty()) {
         if (error)
-            *error = QStringLiteral("“%1” cannot be started: its command line is broken.").arg(app.name);
+            *error = QCoreApplication::translate("MimeApps", "“%1” cannot be started: its command line is broken.").arg(app.name);
         return false;
     }
     for (const QStringList &line : lines) {
@@ -357,12 +358,12 @@ bool MimeApps::launch(const DesktopEntry &app, const QStringList &paths, QString
             program = QStandardPaths::findExecutable(program);
         if (program.isEmpty() || !canRun(program)) {
             if (error)
-                *error = QStringLiteral("“%1” cannot be started: “%2” is not installed.").arg(app.name, line.first());
+                *error = QCoreApplication::translate("MimeApps", "“%1” cannot be started: “%2” is not installed.").arg(app.name, line.first());
             return false;
         }
         if (!QProcess::startDetached(program, line.mid(1), homeDir())) {
             if (error)
-                *error = QStringLiteral("“%1” could not be started.").arg(app.name);
+                *error = QCoreApplication::translate("MimeApps", "“%1” could not be started.").arg(app.name);
             return false;
         }
     }

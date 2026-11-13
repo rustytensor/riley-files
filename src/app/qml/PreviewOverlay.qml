@@ -18,10 +18,15 @@ Rectangle {
     visible: preview.open
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: qsTr("Preview of “%1”").arg(preview.name)
+
     // Clicks and the wheel stay here; a click outside the card closes it.
+    // A click outside the card closes it, as Escape does; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        Accessible.ignored: true
         onWheel: wheel => wheel.accepted = true
         onClicked: overlay.browser.handleKey(Qt.Key_Escape, Qt.NoModifier, "")
     }
@@ -34,7 +39,7 @@ Rectangle {
         border.color: Theme.cardBorder
         border.width: 1
 
-        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; Accessible.ignored: true }
 
         Text {
             id: title
@@ -51,7 +56,7 @@ Rectangle {
             id: hint
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.spacing }
             horizontalAlignment: Text.AlignHCenter
-            text: "↑ ↓ ← → other files · Space or Escape closes"
+            text: qsTr("↑ ↓ ← → other files · Space or Escape closes")
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
         }
@@ -110,7 +115,7 @@ Rectangle {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: overlay.preview.category === "folder" ? "A folder" : "No preview for this kind of file"
+                    text: overlay.preview.category === "folder" ? qsTr("A folder") : qsTr("No preview for this kind of file")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontNormal
                 }

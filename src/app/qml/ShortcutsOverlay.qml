@@ -16,9 +16,14 @@ Rectangle {
     visible: browser.shortcutsShown
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: qsTr("Keyboard Shortcuts")
+
+    // A click outside the card closes it, as Escape does; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        Accessible.ignored: true
         onClicked: overlay.browser.shortcutsShown = false
     }
 
@@ -32,15 +37,17 @@ Rectangle {
         border.color: Theme.cardBorder
         border.width: 1
 
+        // Clicks on the card stay on it.
         MouseArea {
             anchors.fill: parent
+            Accessible.ignored: true
         }
 
         Text {
             id: title
             x: Theme.spacing * 1.5
             y: Theme.spacing
-            text: "Keyboard Shortcuts"
+            text: qsTr("Keyboard Shortcuts")
             color: Theme.text
             font.pixelSize: Theme.fontLarge
             font.weight: Font.DemiBold
@@ -87,7 +94,7 @@ Rectangle {
                         }
                         Text {
                             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                            text: row.others.length > 0 ? row.shortcut + "   or " + row.others : row.shortcut
+                            text: row.others.length > 0 ? qsTr("%1   or %2").arg(row.shortcut).arg(row.others) : row.shortcut
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSmall
                         }

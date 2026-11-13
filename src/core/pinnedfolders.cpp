@@ -3,6 +3,7 @@
 
 #include "pinnedfolders.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -105,17 +106,17 @@ bool PinnedModel::write(const QList<QByteArray> &lines)
 {
     const QString folder = QFileInfo(m_file).absolutePath();
     if (!QDir().mkpath(folder)) {
-        m_error = QStringLiteral("Cannot make the folder “%1”").arg(folder);
+        m_error = QCoreApplication::translate("PinnedFolders", "Cannot make the folder “%1”").arg(folder);
         return false;
     }
     QSaveFile file(m_file);
     if (!file.open(QIODevice::WriteOnly)) {
-        m_error = QStringLiteral("Cannot write the pinned folders: %1").arg(file.errorString());
+        m_error = QCoreApplication::translate("PinnedFolders", "Cannot write the pinned folders: %1").arg(file.errorString());
         return false;
     }
     const QByteArray bytes = lines.join('\n');
     if (file.write(bytes) != bytes.size() || !file.commit()) {
-        m_error = QStringLiteral("Cannot write the pinned folders: %1").arg(file.errorString());
+        m_error = QCoreApplication::translate("PinnedFolders", "Cannot write the pinned folders: %1").arg(file.errorString());
         return false;
     }
     m_error.clear();

@@ -7,6 +7,7 @@
 #include "snapshots.h"
 #include "trash.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QMutexLocker>
@@ -102,7 +103,7 @@ void RestoreJob::run()
             if (*choice == ClashChoice::Replace) {
                 const std::optional<TrashEntry> old = Trash::put(target, &why);
                 if (!old) {
-                    addFailure(path, QStringLiteral("“%1” was not replaced: %2").arg(targetInfo.fileName(), why));
+                    addFailure(path, QCoreApplication::translate("TrashJobs", "“%1” was not replaced: %2").arg(targetInfo.fileName(), why));
                     addDone(1, 0);
                     continue;
                 }

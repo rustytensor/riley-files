@@ -10,6 +10,7 @@
 struct CommandLine
 {
     bool checkUi = false;    // load the window, wait for its first frame, exit
+    bool timeStart = false;  // like checkUi, but waits for the first frame showing the folder's files
     QStringList locations;   // folders, files or file:// URLs to open, in order
 
     // The first location, or empty for the home folder.

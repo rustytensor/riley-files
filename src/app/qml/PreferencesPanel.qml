@@ -18,11 +18,26 @@ Rectangle {
     visible: prefs.shown
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: qsTr("Preferences")
+
+    // The focus goes to the row the cursor is on, so the row a person is on is also the one
+    // assistive technology reads; the list keeps it on its current row as the cursor moves. The
+    // keys still go on to the browser (Tab, the arrows, Space), which moves the cursor.
+    function focusCursor() {
+        const row = rows.itemAtIndex(panel.prefs.cursor)
+        if (row && panel.visible)
+            row.forceActiveFocus()
+    }
+    onVisibleChanged: if (visible) focusCursor()
+
+    // A click outside the card closes the Preferences, as Escape does; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         onClicked: panel.prefs.shown = false
         onWheel: wheel => wheel.accepted = true
+        Accessible.ignored: true
     }
 
     Rectangle {
@@ -38,13 +53,14 @@ Rectangle {
         // Clicks on the card stay on it.
         MouseArea {
             anchors.fill: parent
+            Accessible.ignored: true
         }
 
         Text {
             id: title
             x: Theme.spacing * 2
             y: Theme.spacing * 1.5
-            text: "Preferences"
+            text: qsTr("Preferences")
             color: Theme.text
             font.pixelSize: Theme.fontLarge
             font.weight: Font.DemiBold
@@ -52,7 +68,7 @@ Rectangle {
 
         Text {
             anchors { right: parent.right; rightMargin: Theme.spacing * 2; baseline: title.baseline }
-            text: "↑ ↓ choose · ← → change · Space turns · Esc closes"
+            text: qsTr("↑ ↓ or Tab choose · ← → change · Space turns · Esc closes")
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
         }
@@ -104,15 +120,32 @@ Rectangle {
                 readonly property bool current: panel.prefs.cursor === index
 
                 objectName: "pref_" + optionId
+                Accessible.role: kind === Preferences.Toggle ? Accessible.CheckBox
+                               : (kind === Preferences.Choice ? Accessible.RadioButton : Accessible.EditableText)
+                Accessible.name: label
+                Accessible.description: kind === Preferences.Choice ? (choices[choice] ?? "") + (hint.length > 0 ? " · " + hint : "")
+                                                                    : hint
+                Accessible.focusable: true
+                Accessible.focused: activeFocus
+                Accessible.checkable: kind === Preferences.Toggle
+                Accessible.checked: on
+                Accessible.onPressAction: {
+                    panel.prefs.setCursor(index)
+                    if (kind === Preferences.Toggle)
+                        panel.prefs.toggle(index)
+                }
                 width: ListView.view ? ListView.view.width : 0
                 height: Math.max(Theme.rowHeight + 14, texts.implicitHeight + 12)
                 radius: Theme.radius - 2
-                color: current ? Theme.cursorRow : "transparent"
-                border.width: current ? 1 : 0
-                border.color: Theme.accent
+                color: current ? Theme.cursorRow : (rowMouse.containsMouse ? Theme.hoverRow : Theme.none)
+                Behavior on color { ColorAnimation { duration: Theme.quick } }
+                border.width: current ? Theme.focusWidth : 0
+                border.color: Theme.focusRing
 
                 MouseArea {
+                    id: rowMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     onClicked: panel.prefs.setCursor(row.index)
                 }
 
@@ -153,14 +186,21 @@ Rectangle {
                     Rectangle {
                         objectName: "prefSwitch_" + row.optionId
                         visible: row.kind === Preferences.Toggle
+                        Accessible.role: Accessible.CheckBox
+                        Accessible.name: row.label
+                        Accessible.checkable: true
+                        Accessible.checked: row.on
+                        Accessible.onPressAction: panel.prefs.toggle(row.index)
                         anchors.verticalCenter: parent.verticalCenter
                         width: 40
                         height: 22
                         radius: 11
-                        color: row.on ? Theme.accent : Theme.track
+                        color: row.on ? Theme.accent : (switchMouse.containsMouse ? Theme.buttonHover : Theme.track)
+                        Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                         Rectangle {
                             x: row.on ? parent.width - width - 3 : 3
+                            Behavior on x { NumberAnimation { duration: Theme.quick; easing.type: Easing.OutCubic } }
                             anchors.verticalCenter: parent.verticalCenter
                             width: 16
                             height: 16
@@ -169,7 +209,9 @@ Rectangle {
                         }
 
                         MouseArea {
+                            id: switchMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             onClicked: panel.prefs.toggle(row.index)
                         }
                     }
@@ -191,11 +233,17 @@ Rectangle {
                                 readonly property bool chosen: row.choice === index
 
                                 objectName: "prefChoice_" + row.optionId + "_" + modelData
+                                Accessible.role: Accessible.RadioButton
+                                Accessible.name: modelData
+                                Accessible.checkable: true
+                                Accessible.checked: chosen
+                                Accessible.onPressAction: panel.prefs.choose(row.index, segment.index)
                                 width: segmentText.implicitWidth + Theme.spacing * 1.5
                                 height: control.height
                                 radius: Theme.radius - 2
                                 color: chosen ? Theme.accentSoft : (segmentMouse.containsMouse ? Theme.buttonHover : Theme.button)
-                                border.color: chosen ? Theme.accent : "transparent"
+                                Behavior on color { ColorAnimation { duration: Theme.quick } }
+                                border.color: chosen ? Theme.accent : Theme.none
                                 border.width: 1
 
                                 Text {
@@ -229,7 +277,7 @@ Rectangle {
                             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                             visible: !input.activeFocus && row.value.length === 0
                             verticalAlignment: Text.AlignVCenter
-                            text: "Home"
+                            text: qsTr("Home")
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSmall
                         }
@@ -237,6 +285,8 @@ Rectangle {
                         TextInput {
                             id: input
                             objectName: "prefText_" + row.optionId
+                            Accessible.role: Accessible.EditableText
+                            Accessible.name: row.label
                             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                             verticalAlignment: TextInput.AlignVCenter
                             clip: true

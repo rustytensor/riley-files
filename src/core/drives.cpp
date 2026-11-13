@@ -3,6 +3,7 @@
 
 #include "drives.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -236,24 +237,24 @@ bool DrivesModel::eject(int row, QString *error)
 {
     if (row < 0 || row >= m_drives.size()) {
         if (error)
-            *error = QStringLiteral("That drive is not there any more.");
+            *error = QCoreApplication::translate("Drives", "That drive is not there any more.");
         return false;
     }
     const Mount drive = m_drives.at(row);
     const QString name = nameOf(drive.mountPoint);
     if (m_process) {
         if (error)
-            *error = QStringLiteral("“%1” is still being ejected.").arg(m_ejectName);
+            *error = QCoreApplication::translate("Drives", "“%1” is still being ejected.").arg(m_ejectName);
         return false;
     }
     if (!drive.device.startsWith(QLatin1String("/dev/"))) {
         if (error)
-            *error = QStringLiteral("“%1” is not a disk and cannot be ejected.").arg(name);
+            *error = QCoreApplication::translate("Drives", "“%1” is not a disk and cannot be ejected.").arg(name);
         return false;
     }
     if (QStandardPaths::findExecutable(QStringLiteral("udisksctl")).isEmpty()) {
         if (error)
-            *error = QStringLiteral("Ejecting needs udisksctl (udisks2), which is not installed.");
+            *error = QCoreApplication::translate("Drives", "Ejecting needs udisksctl (udisks2), which is not installed.");
         return false;
     }
     m_ejectDevice = drive.device;
@@ -299,15 +300,15 @@ void DrivesModel::stepFinished(int exitCode, bool crashed)
         return;
     }
     if (said.isEmpty())
-        said = crashed ? QStringLiteral("udisksctl did not run") : QStringLiteral("udisksctl ended with code %1").arg(exitCode);
+        said = crashed ? QCoreApplication::translate("Drives", "udisksctl did not run") : QCoreApplication::translate("Drives", "udisksctl ended with code %1").arg(exitCode);
     const QString name = m_ejectName;
     QString message;
     if (ok)
-        message = QStringLiteral("“%1” can be removed now.").arg(name);
+        message = QCoreApplication::translate("Drives", "“%1” can be removed now.").arg(name);
     else if (m_step == QLatin1String("unmount"))
-        message = QStringLiteral("Cannot eject “%1”: %2").arg(name, said);
+        message = QCoreApplication::translate("Drives", "Cannot eject “%1”: %2").arg(name, said);
     else
-        message = QStringLiteral("“%1” is unmounted, but it could not be powered off: %2").arg(name, said);
+        message = QCoreApplication::translate("Drives", "“%1” is unmounted, but it could not be powered off: %2").arg(name, said);
     m_ejectDevice.clear();
     m_ejectName.clear();
     reload();

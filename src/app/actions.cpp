@@ -141,13 +141,13 @@ QString Actions::keyText(const Key &key)
         return {};
     QString text;
     if (key.mods & Qt::ControlModifier)
-        text += QStringLiteral("Ctrl+");
+        text += tr("Ctrl") + QLatin1Char('+');
     if (key.mods & Qt::ShiftModifier)
-        text += QStringLiteral("Shift+");
+        text += tr("Shift") + QLatin1Char('+');
     if (key.mods & Qt::AltModifier)
-        text += QStringLiteral("Alt+");
+        text += tr("Alt") + QLatin1Char('+');
     if (key.mods & Qt::MetaModifier)
-        text += QStringLiteral("Meta+");
+        text += tr("Meta") + QLatin1Char('+');
 
     const int k = key.key;
     if (k >= Qt::Key_A && k <= Qt::Key_Z)
@@ -158,39 +158,39 @@ QString Actions::keyText(const Key &key)
         return text + QStringLiteral("F%1").arg(k - Qt::Key_F1 + 1);
     switch (k) {
     case Qt::Key_Return:
-        return text + QStringLiteral("Return");
+        return text + tr("Return");
     case Qt::Key_Enter:
-        return text + QStringLiteral("Enter");
+        return text + tr("Enter");
     case Qt::Key_Delete:
-        return text + QStringLiteral("Delete");
+        return text + tr("Delete");
     case Qt::Key_Backspace:
-        return text + QStringLiteral("Backspace");
+        return text + tr("Backspace");
     case Qt::Key_Space:
-        return text + QStringLiteral("Space");
+        return text + tr("Space");
     case Qt::Key_Escape:
-        return text + QStringLiteral("Escape");
+        return text + tr("Escape");
     case Qt::Key_Left:
-        return text + QStringLiteral("Left");
+        return text + tr("Left");
     case Qt::Key_Right:
-        return text + QStringLiteral("Right");
+        return text + tr("Right");
     case Qt::Key_Up:
-        return text + QStringLiteral("Up");
+        return text + tr("Up");
     case Qt::Key_Down:
-        return text + QStringLiteral("Down");
+        return text + tr("Down");
     case Qt::Key_Home:
-        return text + QStringLiteral("Home");
+        return text + tr("Home");
     case Qt::Key_End:
-        return text + QStringLiteral("End");
+        return text + tr("End");
     case Qt::Key_Comma:
         return text + QStringLiteral(",");
     case Qt::Key_Period:
         return text + QStringLiteral(".");
     case Qt::Key_Back:
-        return text + QStringLiteral("Back");
+        return text + tr("Back");
     case Qt::Key_Forward:
-        return text + QStringLiteral("Forward");
+        return text + tr("Forward");
     case Qt::Key_Menu:
-        return text + QStringLiteral("Menu");
+        return text + tr("Menu");
     default:
         return text + QKeySequence(k).toString(QKeySequence::PortableText);
     }
@@ -296,7 +296,7 @@ QVariantList Actions::shortcutList() const
         if (!seen.contains(id))
             rest.append(Entry::action(id));
     }
-    collect(rest, QStringLiteral("Other"), list, seen);
+    collect(rest, tr("Other"), list, seen);
     return list;
 }
 

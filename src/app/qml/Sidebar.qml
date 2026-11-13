@@ -43,6 +43,11 @@ Rectangle {
         // Room kept on the right for a mark (the drives' eject).
         property real rightSpace: 0
 
+        Accessible.role: Accessible.ListItem
+        Accessible.name: name
+        Accessible.selected: marked
+        Accessible.onPressAction: sidebar.browser.openSidebarRow(first + index)
+
         readonly property bool marked: index === markedRow
         readonly property bool current: sidebar.browser.sidebarFocus
                                         && sidebar.browser.sidebarCursor === first + index
@@ -52,7 +57,8 @@ Rectangle {
         radius: Theme.radius - 2
         color: current ? Theme.cursorRow
                        : marked ? Theme.restingRow
-                                : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+                                : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+        Behavior on color { ColorAnimation { duration: Theme.quick } }
         border.width: current ? 1 : 0
         border.color: Theme.accent
 
@@ -102,7 +108,7 @@ Rectangle {
             id: column
             width: parent.width
 
-            Heading { text: "Places" }
+            Heading { text: qsTr("Places") }
 
             ListView {
                 id: places
@@ -120,7 +126,7 @@ Rectangle {
                 }
             }
 
-            Heading { text: "Pinned" }
+            Heading { text: qsTr("Pinned") }
 
             ListView {
                 id: pinned
@@ -143,7 +149,7 @@ Rectangle {
                 width: parent.width
                 leftPadding: Theme.spacing * 1.5
                 rightPadding: Theme.spacing * 1.5
-                text: "Ctrl+D pins the folder you are in."
+                text: qsTr("Ctrl+D pins the folder you are in.")
                 wrapMode: Text.Wrap
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall
@@ -156,7 +162,7 @@ Rectangle {
                 x: Theme.spacing / 2
                 width: parent.width - Theme.spacing
                 index: 0
-                name: "Recent"
+                name: qsTr("Recent")
                 path: ""
                 icon: "recent"
                 first: sidebar.browser.places.count + sidebar.browser.pinned.count
@@ -166,7 +172,7 @@ Rectangle {
             Heading {
                 objectName: "drivesHeading"
                 visible: sidebar.browser.drives.count > 0
-                text: "Drives"
+                text: qsTr("Drives")
             }
 
             ListView {
@@ -192,6 +198,9 @@ Rectangle {
                         anchors { right: parent.right; rightMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
                         text: "⏏"
                         color: ejectMouse.containsMouse ? Theme.text : Theme.textFaint
+                        Accessible.role: Accessible.Button
+                        Accessible.name: qsTr("Eject “%1”").arg(driveRow.name)
+                        Accessible.onPressAction: sidebar.browser.ejectDrive(driveRow.index)
                         font.pixelSize: Theme.fontNormal
 
                         MouseArea {
@@ -207,7 +216,7 @@ Rectangle {
             Heading {
                 objectName: "networkHeading"
                 visible: sidebar.browser.network.count > 0
-                text: "Network"
+                text: qsTr("Network")
             }
 
             ListView {

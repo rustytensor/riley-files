@@ -59,7 +59,7 @@ Item {
         width: view.width - Theme.spacing * 2
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: pane.modelData.model.error.length > 0 ? pane.modelData.model.error : "Empty"
+        text: pane.modelData.model.error.length > 0 ? pane.modelData.model.error : qsTr("Empty")
         color: Theme.textMuted
         font.pixelSize: Theme.fontSmall
     }

@@ -28,16 +28,16 @@ Item {
 
         Title {
             anchors { left: parent.left; leftMargin: Theme.spacing * 1.5 + Theme.iconSize + Theme.spacing }
-            text: "Name"
+            text: qsTr("Name")
         }
         Title {
             anchors { right: parent.right; rightMargin: Theme.spacing * 1.5 + Theme.dateColumn + Theme.spacing }
-            text: "Size"
+            text: qsTr("Size")
         }
         Title {
             anchors { right: parent.right; rightMargin: Theme.spacing * 1.5 }
             width: Theme.dateColumn
-            text: "Modified"
+            text: qsTr("Modified")
         }
 
         Rectangle {
@@ -96,6 +96,8 @@ Item {
         objectName: "listContextArea"
         anchors.fill: view
         acceptedButtons: Qt.RightButton
+        Accessible.role: Accessible.List
+        Accessible.name: qsTr("Files in “%1”").arg(list.browser.folderName)
         onPressed: mouse => {
             const row = view.indexAt(mouse.x + view.contentX, mouse.y + view.contentY)
             const at = mapToItem(null, mouse.x, mouse.y)
@@ -122,7 +124,7 @@ Item {
         width: Math.min(view.width - Theme.spacing * 4, 420)
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: list.browser.model.error.length > 0 ? list.browser.model.error : "This folder is empty."
+        text: list.browser.model.error.length > 0 ? list.browser.model.error : qsTr("This folder is empty.")
         color: Theme.textMuted
         font.pixelSize: Theme.fontNormal
     }

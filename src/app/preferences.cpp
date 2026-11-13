@@ -170,15 +170,26 @@ bool Preferences::key(int key, Qt::KeyboardModifiers mods)
         setShown(false);
         return true;
     }
-    if (mods != Qt::NoModifier || m_options.isEmpty())
+    if (m_options.isEmpty())
+        return true;
+    // Tab and Shift+Tab go round every option, from the last back to the first, so the keys
+    // reach each one.
+    const int count = int(m_options.size());
+    if (key == Qt::Key_Backtab || (key == Qt::Key_Tab && mods == Qt::ShiftModifier)) {
+        setCursor((m_cursor - 1 + count) % count);
+        return true;
+    }
+    if (mods != Qt::NoModifier)
         return true;
     const Option &o = m_options.at(m_cursor);
     switch (key) {
     case Qt::Key_Up:
         setCursor(m_cursor - 1);
         break;
-    case Qt::Key_Down:
     case Qt::Key_Tab:
+        setCursor((m_cursor + 1) % count);
+        break;
+    case Qt::Key_Down:
         setCursor(m_cursor + 1);
         break;
     case Qt::Key_Home:

@@ -39,6 +39,8 @@ public:
     QQuickWindow *window() const;
 
 private:
+    // The language is chosen before anything that shows words is made.
+    QString m_language;
     // The browser outlives the engine, so no binding ever reads a deleted browser.
     std::unique_ptr<Browser> m_browser;
     // Makes the grid's thumbnails; shared with the engine's image provider.

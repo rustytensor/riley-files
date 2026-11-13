@@ -7,6 +7,7 @@
 #include "snapshots.h"
 #include "trash.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -188,7 +189,7 @@ void TransferJob::run()
     }
     struct stat dst;
     if (::stat(QFile::encodeName(m_destination).constData(), &dst) != 0 || !S_ISDIR(dst.st_mode)) {
-        addFailure(m_destination, QStringLiteral("The folder “%1” is not there").arg(QFileInfo(m_destination).fileName()));
+        addFailure(m_destination, QCoreApplication::translate("FileJobs", "The folder “%1” is not there").arg(QFileInfo(m_destination).fileName()));
         return;
     }
     for (const QString &source : m_sources) {
@@ -203,11 +204,12 @@ void TransferJob::transferOne(const QString &source, const QString &asName)
     const QString srcPath = QDir::cleanPath(QDir(source).absolutePath());
     const QByteArray src = QFile::encodeName(srcPath);
     const QString name = QFileInfo(srcPath).fileName();
-    const QString verb = m_move ? QStringLiteral("move") : QStringLiteral("copy");
 
     struct stat st;
     if (::lstat(src.constData(), &st) != 0) {
-        addFailure(srcPath, QStringLiteral("Cannot %1 “%2”: %3").arg(verb, name, errorText(errno)));
+        addFailure(srcPath, (m_move ? QCoreApplication::translate("FileJobs", "Cannot move “%1”: %2")
+                                    : QCoreApplication::translate("FileJobs", "Cannot copy “%1”: %2"))
+                                .arg(name, errorText(errno)));
         return;
     }
     const bool isFolder = S_ISDIR(st.st_mode);
@@ -223,7 +225,9 @@ void TransferJob::transferOne(const QString &source, const QString &asName)
         return;
     }
     if (isFolder && isSameOrInside(m_destination, srcPath)) {
-        addFailure(srcPath, QStringLiteral("Cannot %1 the folder “%2” into itself").arg(verb, name));
+        addFailure(srcPath, (m_move ? QCoreApplication::translate("FileJobs", "Cannot move the folder “%1” into itself")
+                                    : QCoreApplication::translate("FileJobs", "Cannot copy the folder “%1” into itself"))
+                                .arg(name));
         skipAll();
         return;
     }
@@ -245,7 +249,6 @@ QString TransferJob::place(const QString &srcPath, const struct stat &st, const 
 {
     const QByteArray src = QFile::encodeName(srcPath);
     const QString name = asName.isEmpty() ? QFileInfo(srcPath).fileName() : asName;
-    const QString verb = m_move ? QStringLiteral("move") : QStringLiteral("copy");
     const bool isFolder = S_ISDIR(st.st_mode);
     Tally mine;
     tally(src, st, &mine);
@@ -258,7 +261,10 @@ QString TransferJob::place(const QString &srcPath, const struct stat &st, const 
             // Copying a thing onto itself: the only safe answer is a second copy beside it.
             targetName = freeName(folder, name, isFolder);
         } else if (isSameOrInside(srcPath, target)) {
-            addFailure(srcPath, QStringLiteral("Cannot %1 “%2” over the folder that holds it").arg(verb, name));
+            addFailure(srcPath,
+                       (m_move ? QCoreApplication::translate("FileJobs", "Cannot move “%1” over the folder that holds it")
+                               : QCoreApplication::translate("FileJobs", "Cannot copy “%1” over the folder that holds it"))
+                           .arg(name));
             addDone(mine.files, mine.bytes);
             return QString();
         } else {
@@ -279,7 +285,7 @@ QString TransferJob::place(const QString &srcPath, const struct stat &st, const 
                 QString why;
                 const std::optional<TrashEntry> trashed = Trash::put(target, &why);
                 if (!trashed) {
-                    addFailure(srcPath, QStringLiteral("“%1” was not replaced: %2").arg(name, why));
+                    addFailure(srcPath, QCoreApplication::translate("FileJobs", "“%1” was not replaced: %2").arg(name, why));
                     addDone(mine.files, mine.bytes);
                     return QString();
                 }
@@ -309,7 +315,7 @@ QString TransferJob::place(const QString &srcPath, const struct stat &st, const 
             return target;
         }
         if (renameErrno != EXDEV) {
-            addFailure(srcPath, QStringLiteral("Cannot move “%1”: %2").arg(name, errorText(renameErrno)));
+            addFailure(srcPath, QCoreApplication::translate("FileJobs", "Cannot move “%1”: %2").arg(name, errorText(renameErrno)));
             addDone(mine.files, mine.bytes);
             return QString();
         }
@@ -320,11 +326,11 @@ QString TransferJob::place(const QString &srcPath, const struct stat &st, const 
             removeOwnCopy(dst);
             dropStep(JobStep::Created, srcPath, target);
             if (!stopRequested() && failureCount() == failuresBefore)
-                addFailure(srcPath, QStringLiteral("Cannot move “%1”").arg(name));
+                addFailure(srcPath, QCoreApplication::translate("FileJobs", "Cannot move “%1”").arg(name));
             return QString();
         }
         if (!removeOriginal(src)) {
-            addFailure(srcPath, QStringLiteral("“%1” was copied, but the original could not be removed: %2")
+            addFailure(srcPath, QCoreApplication::translate("FileJobs", "“%1” was copied, but the original could not be removed: %2")
                                     .arg(name, errorText(errno)));
         } else {
             dropStep(JobStep::Created, srcPath, target);
@@ -342,7 +348,7 @@ void TransferJob::mergeFolder(const QString &srcPath, const QString &target)
     const QByteArray src = QFile::encodeName(srcPath);
     QList<QByteArray> names;
     if (!namesIn(src, &names)) {
-        addFailure(srcPath, QStringLiteral("Cannot read the folder “%1”: %2").arg(nameOf(src), errorText(errno)));
+        addFailure(srcPath, QCoreApplication::translate("FileJobs", "Cannot read the folder “%1”: %2").arg(nameOf(src), errorText(errno)));
         struct stat st;
         if (::lstat(src.constData(), &st) == 0) {
             Tally mine;
@@ -358,9 +364,9 @@ void TransferJob::mergeFolder(const QString &srcPath, const QString &target)
         struct stat cst;
         if (::lstat(from.constData(), &cst) != 0) {
             if (errno != ENOENT) // a file removed meanwhile is simply not copied
-                addFailure(pathOf(from), QStringLiteral("Cannot %1 “%2”: %3")
-                                             .arg(m_move ? QStringLiteral("move") : QStringLiteral("copy"),
-                                                  nameOf(from), errorText(errno)));
+                addFailure(pathOf(from), (m_move ? QCoreApplication::translate("FileJobs", "Cannot move “%1”: %2")
+                                                 : QCoreApplication::translate("FileJobs", "Cannot copy “%1”: %2"))
+                                             .arg(nameOf(from), errorText(errno)));
             continue;
         }
         place(pathOf(from), cst, target);
@@ -383,13 +389,13 @@ bool TransferJob::copyEntry(const QByteArray &src, const QByteArray &dst, const 
         QByteArray target(st.st_size > 0 ? st.st_size + 1 : 4096, '\0');
         const ssize_t n = ::readlink(src.constData(), target.data(), size_t(target.size()));
         if (n < 0 || n >= target.size()) {
-            addFailure(pathOf(src), QStringLiteral("Cannot read the link “%1”: %2").arg(nameOf(src), errorText(errno)));
+            addFailure(pathOf(src), QCoreApplication::translate("FileJobs", "Cannot read the link “%1”: %2").arg(nameOf(src), errorText(errno)));
             addDone(1, 0);
             return false;
         }
         target.truncate(n);
         if (::symlink(target.constData(), dst.constData()) != 0) {
-            addFailure(pathOf(src), QStringLiteral("Cannot copy the link “%1”: %2").arg(nameOf(src), errorText(errno)));
+            addFailure(pathOf(src), QCoreApplication::translate("FileJobs", "Cannot copy the link “%1”: %2").arg(nameOf(src), errorText(errno)));
             addDone(1, 0);
             return false;
         }
@@ -400,7 +406,7 @@ bool TransferJob::copyEntry(const QByteArray &src, const QByteArray &dst, const 
         addDone(1, 0);
         return true;
     }
-    addFailure(pathOf(src), QStringLiteral("“%1” is a special file and was not copied").arg(nameOf(src)));
+    addFailure(pathOf(src), QCoreApplication::translate("FileJobs", "“%1” is a special file and was not copied").arg(nameOf(src)));
     addDone(1, 0);
     return false;
 }
@@ -417,7 +423,7 @@ bool TransferJob::copyFile(const QByteArray &src, const QByteArray &dst, const s
 
     const int in = ::open(src.constData(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (in < 0)
-        return failed(QStringLiteral("Cannot read “%1”: %2").arg(nameOf(src), errorText(errno)));
+        return failed(QCoreApplication::translate("FileJobs", "Cannot read “%1”: %2").arg(nameOf(src), errorText(errno)));
 
     // The copy is written under no name where the file system allows it, else under a hidden
     // temporary name; it gets its real name only when complete.
@@ -434,7 +440,7 @@ bool TransferJob::copyFile(const QByteArray &src, const QByteArray &dst, const s
     if (out < 0) {
         const int e = errno;
         ::close(in);
-        return failed(QStringLiteral("Cannot write “%1”: %2").arg(nameOf(dst), errorText(e)));
+        return failed(QCoreApplication::translate("FileJobs", "Cannot write “%1”: %2").arg(nameOf(dst), errorText(e)));
     }
     auto discard = [&] {
         ::close(out);
@@ -481,7 +487,7 @@ bool TransferJob::copyFile(const QByteArray &src, const QByteArray &dst, const s
                 continue;
             const int e = errno;
             discard();
-            return failed(QStringLiteral("Cannot copy “%1”: %2").arg(nameOf(src), errorText(e)));
+            return failed(QCoreApplication::translate("FileJobs", "Cannot copy “%1”: %2").arg(nameOf(src), errorText(e)));
         }
         if (n == 0)
             break;
@@ -509,9 +515,9 @@ bool TransferJob::copyFile(const QByteArray &src, const QByteArray &dst, const s
         if (!temp.isEmpty())
             ::unlink(temp.constData());
         addFailure(pathOf(src), placeErrno == EEXIST
-                                    ? QStringLiteral("“%1” appeared in the destination meanwhile and was not overwritten")
+                                    ? QCoreApplication::translate("FileJobs", "“%1” appeared in the destination meanwhile and was not overwritten")
                                           .arg(nameOf(dst))
-                                    : QStringLiteral("Cannot write “%1”: %2").arg(nameOf(dst), errorText(placeErrno)));
+                                    : QCoreApplication::translate("FileJobs", "Cannot write “%1”: %2").arg(nameOf(dst), errorText(placeErrno)));
         addDone(1, 0);
         return false;
     }
@@ -525,11 +531,11 @@ bool TransferJob::copyFolder(const QByteArray &src, const QByteArray &dst, const
 {
     QList<QByteArray> names;
     if (!namesIn(src, &names)) {
-        addFailure(pathOf(src), QStringLiteral("Cannot read the folder “%1”: %2").arg(nameOf(src), errorText(errno)));
+        addFailure(pathOf(src), QCoreApplication::translate("FileJobs", "Cannot read the folder “%1”: %2").arg(nameOf(src), errorText(errno)));
         return false;
     }
     if (::mkdir(dst.constData(), 0700) != 0) {
-        addFailure(pathOf(src), QStringLiteral("Cannot make the folder “%1”: %2").arg(nameOf(dst), errorText(errno)));
+        addFailure(pathOf(src), QCoreApplication::translate("FileJobs", "Cannot make the folder “%1”: %2").arg(nameOf(dst), errorText(errno)));
         return false;
     }
     if (top)
@@ -545,7 +551,7 @@ bool TransferJob::copyFolder(const QByteArray &src, const QByteArray &dst, const
         struct stat cst;
         if (::lstat(from.constData(), &cst) != 0) {
             if (errno != ENOENT) { // a file removed meanwhile is simply not copied
-                addFailure(pathOf(from), QStringLiteral("Cannot copy “%1”: %2").arg(nameOf(from), errorText(errno)));
+                addFailure(pathOf(from), QCoreApplication::translate("FileJobs", "Cannot copy “%1”: %2").arg(nameOf(from), errorText(errno)));
                 ok = false;
             }
             continue;
@@ -585,11 +591,11 @@ void RenameJob::run()
         return;
     }
     if (!isValidFileName(m_newName)) {
-        addFailure(m_path, QStringLiteral("“%1” cannot be used as a name").arg(m_newName));
+        addFailure(m_path, QCoreApplication::translate("FileJobs", "“%1” cannot be used as a name").arg(m_newName));
         return;
     }
     if (!pathExists(m_path)) {
-        addFailure(m_path, QStringLiteral("“%1” is not there any more").arg(oldName));
+        addFailure(m_path, QCoreApplication::translate("FileJobs", "“%1” is not there any more").arg(oldName));
         return;
     }
     setTotals(1, 0);
@@ -609,11 +615,11 @@ void RenameJob::run()
         e = taken ? EEXIST : (::rename(from.constData(), to.constData()) == 0 ? 0 : errno);
     }
     if (e == EEXIST) {
-        addFailure(m_path, QStringLiteral("There is already something named “%1” here").arg(m_newName));
+        addFailure(m_path, QCoreApplication::translate("FileJobs", "There is already something named “%1” here").arg(m_newName));
         return;
     }
     if (e != 0) {
-        addFailure(m_path, QStringLiteral("Cannot rename “%1”: %2").arg(oldName, errorText(e)));
+        addFailure(m_path, QCoreApplication::translate("FileJobs", "Cannot rename “%1”: %2").arg(oldName, errorText(e)));
         return;
     }
     addStep(JobStep::Moved, m_path, m_newPath);
@@ -640,7 +646,7 @@ void NewFolderJob::run()
         return;
     }
     if (!isValidFileName(m_name)) {
-        addFailure(m_parent, QStringLiteral("“%1” cannot be used as a name").arg(m_name));
+        addFailure(m_parent, QCoreApplication::translate("FileJobs", "“%1” cannot be used as a name").arg(m_name));
         return;
     }
     setTotals(1, 0);
@@ -656,7 +662,7 @@ void NewFolderJob::run()
             return;
         }
         if (errno != EEXIST) {
-            addFailure(m_parent, QStringLiteral("Cannot make a folder in “%1”: %2")
+            addFailure(m_parent, QCoreApplication::translate("FileJobs", "Cannot make a folder in “%1”: %2")
                                      .arg(QFileInfo(m_parent).fileName(), errorText(errno)));
             return;
         }

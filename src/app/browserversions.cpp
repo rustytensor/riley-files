@@ -22,7 +22,7 @@ void Browser::showVersions()
         return;
     const QString path = m_versions->path();
     if (path.isEmpty() || !m_versions->isAvailable()) {
-        m_ops->say(QStringLiteral("There are no snapshots of “%1”.").arg(QFileInfo(path).fileName()));
+        m_ops->say(tr("There are no snapshots of “%1”.").arg(QFileInfo(path).fileName()));
         return;
     }
     closeSearch();
@@ -54,7 +54,7 @@ void Browser::restoreVersion(int row, bool asCopy)
         return;
     const QList<Riley::FileVersion> list = m_versions->versions();
     if (row < 0 || row >= list.size()) {
-        m_ops->say(QStringLiteral("Choose a version to restore."));
+        m_ops->say(tr("Choose a version to restore."));
         return;
     }
     const Riley::FileVersion version = list.at(row);
@@ -68,7 +68,7 @@ void Browser::restoreVersion(int row, bool asCopy)
     if (asCopy)
         restore();
     else
-        ask(QStringLiteral("Restore this version?"), restore);
+        ask(tr("Restore this version?"), restore);
 }
 
 QList<Actions::Entry> Browser::versionMenu() const

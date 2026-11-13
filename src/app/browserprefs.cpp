@@ -35,35 +35,35 @@ QStringList namesOf(const QAbstractItemModel &model, int role)
 void Browser::addPreferences()
 {
     Preferences &p = *m_prefs;
-    const QString general = u"General"_s;
-    const QString appearance = u"Appearance"_s;
-    const QString behaviour = u"Behaviour"_s;
+    const QString general = tr("General");
+    const QString appearance = tr("Appearance");
+    const QString behaviour = tr("Behaviour");
 
-    p.add({general, u"startFolder"_s, u"Start folder"_s, u"Where a new window opens; empty for the home folder"_s,
+    p.add({general, u"startFolder"_s, tr("Start folder"), tr("Where a new window opens; empty for the home folder"),
            Preferences::Text, {}, {}, u"general/startFolder"_s, {}, {}, {}});
-    p.add({general, u"defaultView"_s, u"Default view"_s, u"The view a new window starts in"_s, Preferences::Choice,
-           {u"Last used"_s, u"List"_s, u"Grid"_s, u"Columns"_s}, {QString(), u"list"_s, u"grid"_s, u"columns"_s},
+    p.add({general, u"defaultView"_s, tr("Default view"), tr("The view a new window starts in"), Preferences::Choice,
+           {tr("Last used"), tr("List"), tr("Grid"), tr("Columns")}, {QString(), u"list"_s, u"grid"_s, u"columns"_s},
            u"View/default"_s, QString(), {}, {}});
-    p.add({general, u"hidden"_s, u"Show hidden files"_s, u"Ctrl+H"_s, Preferences::Toggle, {}, onOff, {}, {},
+    p.add({general, u"hidden"_s, tr("Show hidden files"), tr("Ctrl+H"), Preferences::Toggle, {}, onOff, {}, {},
            [this] { return showHidden() ? u"true"_s : u"false"_s; },
            [this](const QString &v) { setShowHidden(v == QLatin1String("true")); }});
-    p.add({general, u"singleClick"_s, u"Open with a single click"_s, u"Otherwise a double-click opens"_s,
+    p.add({general, u"singleClick"_s, tr("Open with a single click"), tr("Otherwise a double-click opens"),
            Preferences::Toggle, {}, onOff, u"general/singleClick"_s, u"false"_s, {}, {}});
 
-    p.add({appearance, u"paneWidths"_s, u"Pane widths"_s,
-           u"Fixed, fitted to the names, or scaled with the window; a dragged divider keeps its width"_s,
-           Preferences::Choice, {u"Fixed"_s, u"Automatic"_s, u"Proportional"_s},
+    p.add({appearance, u"paneWidths"_s, tr("Pane widths"),
+           tr("Fixed, fitted to the names, or scaled with the window; a dragged divider keeps its width"),
+           Preferences::Choice, {tr("Fixed"), tr("Automatic"), tr("Proportional")},
            {u"fixed"_s, u"automatic"_s, u"proportional"_s}, {}, {}, [this] { return m_paneWidths; },
            [this](const QString &v) { setPaneWidths(v); }});
-    p.add({appearance, u"thumbnailSize"_s, u"Thumbnail size"_s, u"Icons and pictures in the grid"_s,
-           Preferences::Choice, {u"Small"_s, u"Medium"_s, u"Large"_s}, {u"44"_s, u"64"_s, u"96"_s},
+    p.add({appearance, u"thumbnailSize"_s, tr("Thumbnail size"), tr("Icons and pictures in the grid"),
+           Preferences::Choice, {tr("Small"), tr("Medium"), tr("Large")}, {u"44"_s, u"64"_s, u"96"_s},
            u"appearance/thumbnailSize"_s, u"44"_s, {}, {}});
-    p.add({appearance, u"treeLines"_s, u"Tree lines"_s, u"Lines that join folders opened in place"_s,
+    p.add({appearance, u"treeLines"_s, tr("Tree lines"), tr("Lines that join folders opened in place"),
            Preferences::Toggle, {}, onOff, u"appearance/treeLines"_s, u"true"_s, {}, {}});
 
-    p.add({behaviour, u"askTrash"_s, u"Ask before moving to the trash"_s, u"Moving to the trash can be undone"_s,
+    p.add({behaviour, u"askTrash"_s, tr("Ask before moving to the trash"), tr("Moving to the trash can be undone"),
            Preferences::Toggle, {}, onOff, u"behaviour/askBeforeTrash"_s, u"false"_s, {}, {}});
-    p.add({behaviour, u"foldersFirst"_s, u"Folders first in every sort"_s, {}, Preferences::Toggle, {}, onOff,
+    p.add({behaviour, u"foldersFirst"_s, tr("Folders first in every sort"), {}, Preferences::Toggle, {}, onOff,
            u"behaviour/foldersFirst"_s, u"true"_s, {}, {}});
 }
 
@@ -113,8 +113,8 @@ void Browser::trashTargets()
         return;
     }
     const QString text = paths.size() == 1
-                             ? QStringLiteral("Move “%1” to the trash?").arg(QFileInfo(paths.first()).fileName())
-                             : QStringLiteral("Move %1 items to the trash?").arg(paths.size());
+                             ? tr("Move “%1” to the trash?").arg(QFileInfo(paths.first()).fileName())
+                             : tr("Move %n items to the trash?", nullptr, int(paths.size()));
     ask(text, [this, paths] { m_ops->trash(paths); });
 }
 
@@ -152,7 +152,7 @@ void Browser::measureSidebar()
     names += namesOf(*m_pinned, Riley::PinnedModel::NameRole);
     names += namesOf(*m_drives, Riley::DrivesModel::NameRole);
     names += namesOf(*m_network, Riley::NetworkModel::NameRole);
-    names.append(QStringLiteral("Recent"));
+    names.append(tr("Recent"));
     m_panes->measure(PaneWidths::Sidebar, names);
 }
 

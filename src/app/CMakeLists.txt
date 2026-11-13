@@ -23,6 +23,8 @@ qt_add_library(riley-ui SHARED
     thumbnailprovider.h thumbnailprovider.cpp
     details.h details.cpp
     preview.h preview.cpp
+    themefile.h themefile.cpp
+    translations.h translations.cpp
 )
 
 set(rf_qml_files
@@ -91,10 +93,30 @@ set_target_properties(riley-ui PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR})
 
+# The German and French catalogs (i18n/riley-files_<language>.ts), made into .qm files, built into
+# the interface library and installed beside it, so a catalog put in the installed place is used
+# first. `cmake --build build --target update_translations` brings the catalogs up to date with
+# the sources.
+qt_add_translations(
+    TARGETS riley-ui riley-core riley-thumbs
+    TS_FILE_DIR ${PROJECT_SOURCE_DIR}/i18n
+    TS_FILE_BASE riley-files
+    LUPDATE_OPTIONS -locations none
+    QM_FILES_OUTPUT_VARIABLE rf_qm_files)
+qt_add_resources(riley-ui riley_translations
+    PREFIX /i18n
+    BASE ${CMAKE_CURRENT_BINARY_DIR}
+    FILES ${rf_qm_files})
+install(FILES ${rf_qm_files}
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/riley-files/translations)
+
 qt_add_executable(riley-files
     main.cpp
     uicheck.h uicheck.cpp
 )
+
+target_compile_definitions(riley-ui PRIVATE
+    RILEY_TRANSLATIONS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/riley-files/translations")
 
 target_compile_definitions(riley-files PRIVATE
     RILEY_FILES_VERSION="${PROJECT_VERSION}")

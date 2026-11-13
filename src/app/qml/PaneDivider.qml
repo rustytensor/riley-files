@@ -15,6 +15,11 @@ Item {
 
     width: Theme.dividerGrip
 
+    Accessible.role: Accessible.Separator
+    Accessible.name: pane === "sidebar" ? qsTr("Width of the sidebar")
+                   : pane === "details" ? qsTr("Width of the details pane") : qsTr("Width of the columns")
+    Accessible.description: qsTr("Drag to change; a double-click gives back the chosen width")
+
     MouseArea {
         id: grip
 

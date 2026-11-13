@@ -22,6 +22,9 @@ Rectangle {
     implicitHeight: Theme.menuBarHeight
     color: Theme.header
 
+    Accessible.role: Accessible.MenuBar
+    Accessible.name: qsTr("Menu bar")
+
     Row {
         id: row
         x: Theme.spacing / 2
@@ -40,9 +43,14 @@ Rectangle {
                 readonly property string title: modelData
                 readonly property bool open: bar.actions.barMenu === index
 
+                Accessible.role: Accessible.MenuItem
+                Accessible.name: titleItem.title
+                Accessible.onPressAction: bar.actions.openBarMenu(titleItem.index)
+
                 width: label.implicitWidth + Theme.spacing * 1.5
                 height: row.height
-                color: open ? Theme.accentSoft : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+                color: open ? Theme.accentSoft : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+                Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                 Text {
                     id: label

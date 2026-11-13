@@ -16,13 +16,19 @@ Rectangle {
         id: button
 
         property string glyph
+        property string name
         property bool active: true
         signal clicked()
+
+        Accessible.role: Accessible.Button
+        Accessible.name: button.name
+        Accessible.onPressAction: if (button.active) button.clicked()
 
         width: 30
         height: 30
         radius: Theme.radius
-        color: mouse.containsMouse && button.active ? Theme.hoverRow : "transparent"
+        color: mouse.containsMouse && button.active ? Theme.hoverRow : Theme.none
+        Behavior on color { ColorAnimation { duration: Theme.quick } }
 
         Text {
             anchors.centerIn: parent
@@ -45,9 +51,16 @@ Rectangle {
         anchors { left: parent.left; leftMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
         spacing: 2
 
-        NavButton { glyph: "‹"; active: bar.browser.canGoBack; onClicked: bar.browser.goBack() }
-        NavButton { glyph: "›"; active: bar.browser.canGoForward; onClicked: bar.browser.goForward() }
-        NavButton { glyph: "↑"; active: bar.browser.canGoUp; onClicked: bar.browser.goUp() }
+        NavButton {
+            glyph: "‹"; name: qsTr("Back"); active: bar.browser.canGoBack; onClicked: bar.browser.goBack()
+        }
+        NavButton {
+            glyph: "›"; name: qsTr("Forward"); active: bar.browser.canGoForward; onClicked: bar.browser.goForward()
+        }
+        NavButton {
+            glyph: "↑"; name: qsTr("Up to the folder that holds this one"); active: bar.browser.canGoUp
+            onClicked: bar.browser.goUp()
+        }
     }
 
     // Gives the typing to the search field, when it is shown.
@@ -57,7 +70,9 @@ Rectangle {
         id: title
         visible: !bar.browser.locationEditing && !bar.browser.searchShown
         anchors { left: nav.right; leftMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
-        text: bar.browser.folderName.length > 0 ? bar.browser.folderName : "Files"
+        text: bar.browser.folderName.length > 0 ? bar.browser.folderName : qsTr("Files")
+        Accessible.role: Accessible.Heading
+        Accessible.name: text
         color: Theme.text
         font.pixelSize: Theme.fontLarge
         font.weight: Font.DemiBold
@@ -102,6 +117,9 @@ Rectangle {
         TextInput {
             id: location
             objectName: "location"
+
+            Accessible.role: Accessible.EditableText
+            Accessible.name: qsTr("Location")
 
             anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
             verticalAlignment: TextInput.AlignVCenter
@@ -156,6 +174,10 @@ Rectangle {
             id: search
             objectName: "searchField"
 
+            Accessible.role: Accessible.EditableText
+            Accessible.name: bar.browser.searchContents ? qsTr("Find inside files") : qsTr("Find names")
+            Accessible.description: bar.browser.searchHint
+
             anchors {
                 left: parent.left; leftMargin: 6
                 right: modes.left; rightMargin: 6
@@ -194,13 +216,25 @@ Rectangle {
                 id: modeButton
 
                 property string label
+                property string key
                 property bool on
 
-                objectName: "searchMode" + label
+                objectName: "searchMode" + key
+                Accessible.role: Accessible.RadioButton
+                Accessible.name: label
+                Accessible.checkable: true
+                Accessible.checked: on
+                Accessible.onPressAction: choose()
+
+                function choose() {
+                    bar.browser.searchContents = modeButton.key === "Contents"
+                    search.forceActiveFocus()
+                }
                 width: modeText.implicitWidth + 12
                 height: Theme.rowHeight - 6
                 radius: 3
-                color: on ? Theme.accentSoft : (modeMouse.containsMouse ? Theme.hoverRow : "transparent")
+                color: on ? Theme.accentSoft : (modeMouse.containsMouse ? Theme.hoverRow : Theme.none)
+                Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                 Text {
                     id: modeText
@@ -214,15 +248,12 @@ Rectangle {
                     id: modeMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: {
-                        bar.browser.searchContents = modeButton.label === "Contents"
-                        search.forceActiveFocus()
-                    }
+                    onClicked: modeButton.choose()
                 }
             }
 
-            ModeButton { label: "Names"; on: !bar.browser.searchContents }
-            ModeButton { label: "Contents"; on: bar.browser.searchContents }
+            ModeButton { key: "Names"; label: qsTr("Names"); on: !bar.browser.searchContents }
+            ModeButton { key: "Contents"; label: qsTr("Contents"); on: bar.browser.searchContents }
         }
     }
 
@@ -238,17 +269,24 @@ Rectangle {
 
             readonly property bool on: bar.browser.detailsShown
 
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Details")
+            Accessible.checkable: true
+            Accessible.checked: on
+            Accessible.onPressAction: bar.browser.detailsShown = !bar.browser.detailsShown
+
             width: 30
             height: 30
             radius: Theme.radius
-            color: on ? Theme.accentSoft : (detailsMouse.containsMouse ? Theme.hoverRow : "transparent")
+            color: on ? Theme.accentSoft : (detailsMouse.containsMouse ? Theme.hoverRow : Theme.none)
+            Behavior on color { ColorAnimation { duration: Theme.quick } }
 
             Rectangle {
                 anchors.centerIn: parent
                 width: 16
                 height: 16
                 radius: 8
-                color: "transparent"
+                color: Theme.none
                 border.width: 1.5
                 border.color: detailsButton.on ? Theme.accent : Theme.textMuted
 

@@ -16,6 +16,9 @@ Rectangle {
     visible: browser.connectShown
     color: Theme.scrim
 
+    Accessible.role: Accessible.Dialog
+    Accessible.name: qsTr("Connect to Server")
+
     onVisibleChanged: {
         if (visible) {
             field.text = ""
@@ -28,6 +31,8 @@ Rectangle {
         acceptedButtons: Qt.AllButtons
         onWheel: wheel => wheel.accepted = true
         onClicked: dialog.browser.cancelConnect()
+        // A click outside closes, as Escape does; it is not a control.
+        Accessible.ignored: true
     }
 
     Rectangle {
@@ -40,7 +45,7 @@ Rectangle {
         border.width: 1
 
         // Clicks on the card stay on it.
-        MouseArea { anchors.fill: parent }
+        MouseArea { anchors.fill: parent; Accessible.ignored: true }
 
         Column {
             id: content
@@ -49,7 +54,7 @@ Rectangle {
 
             Text {
                 width: parent.width
-                text: "Connect to Server"
+                text: qsTr("Connect to Server")
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
                 font.weight: Font.DemiBold
@@ -66,6 +71,9 @@ Rectangle {
                 TextInput {
                     id: field
                     objectName: "connectField"
+                    Accessible.role: Accessible.EditableText
+                    Accessible.name: qsTr("Server address")
+                    Accessible.description: qsTr("sftp, smb, ftp, dav and davs addresses · Return connects · Esc cancels")
 
                     anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
                     verticalAlignment: TextInput.AlignVCenter
@@ -94,7 +102,7 @@ Rectangle {
                     anchors { fill: field }
                     visible: field.text.length === 0
                     verticalAlignment: Text.AlignVCenter
-                    text: "sftp://server/folder"
+                    text: qsTr("sftp://server/folder")
                     color: Theme.textFaint
                     font.pixelSize: Theme.fontNormal
                 }
@@ -102,7 +110,7 @@ Rectangle {
 
             Text {
                 width: parent.width
-                text: "sftp, smb, ftp, dav and davs addresses · Return connects · Esc cancels"
+                text: qsTr("sftp, smb, ftp, dav and davs addresses · Return connects · Esc cancels")
                 wrapMode: Text.Wrap
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall

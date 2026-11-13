@@ -41,7 +41,7 @@ void Browser::openFiles(const QStringList &paths)
         const QString type = mimeTypeOf(path);
         const QList<DesktopEntry> apps = MimeApps::applicationsFor(type);
         if (apps.isEmpty()) {
-            m_ops->say(QStringLiteral("No application is set to open “%1” (%2). Choose one with Open With.")
+            m_ops->say(tr("No application is set to open “%1” (%2). Choose one with Open With.")
                            .arg(nameOf(path), type));
             continue;
         }
@@ -71,7 +71,7 @@ QList<Entry> Browser::openWithEntries()
     const QStringList paths = targetPaths();
     const QString path = activeModel()->pathAt(activeCursor());
     if (path.isEmpty())
-        return {Entry::oneOff(QStringLiteral("No File Chosen"), {}, false)};
+        return {Entry::oneOff(tr("No File Chosen"), {}, false)};
     const QString type = mimeTypeOf(path);
     const QList<DesktopEntry> apps = MimeApps::applicationsFor(type);
 
@@ -81,20 +81,20 @@ QList<Entry> Browser::openWithEntries()
         entries.append(Entry::oneOff(app.name, [this, app, paths] { launch(app, paths); }));
         always.append(Entry::oneOff(app.name, [this, app, type] {
             if (!MimeApps::setDefault(type, app.id)) {
-                m_ops->say(QStringLiteral("The default application could not be saved in “%1”.")
+                m_ops->say(tr("The default application could not be saved in “%1”.")
                                .arg(MimeApps::userListFile()));
                 return;
             }
-            m_ops->say(QStringLiteral("Files of this type (%1) now open with %2.").arg(type, app.name));
+            m_ops->say(tr("Files of this type (%1) now open with %2.").arg(type, app.name));
         }));
     }
     if (entries.isEmpty())
-        entries.append(Entry::oneOff(QStringLiteral("No Applications for This Type"), {}, false));
+        entries.append(Entry::oneOff(tr("No Applications for This Type"), {}, false));
     entries.append(Entry::separator());
     if (always.isEmpty())
-        always.append(Entry::oneOff(QStringLiteral("No Applications for This Type"), {}, false));
-    entries.append(Entry::submenu(QStringLiteral("always-use"), QStringLiteral("Always Use for This Type"), always));
-    entries.append(Entry::oneOff(QStringLiteral("Other Application"), [this, paths] { chooseOtherApp(paths); }));
+        always.append(Entry::oneOff(tr("No Applications for This Type"), {}, false));
+    entries.append(Entry::submenu(QStringLiteral("always-use"), tr("Always Use for This Type"), always));
+    entries.append(Entry::oneOff(tr("Other Application"), [this, paths] { chooseOtherApp(paths); }));
     return entries;
 }
 
@@ -106,9 +106,9 @@ void Browser::chooseOtherApp(const QStringList &paths)
             continue;
         items.append({app.name, app.id, app.id, QString()});
     }
-    const QString what = paths.size() == 1 ? QStringLiteral("“%1”").arg(nameOf(paths.first()))
-                                           : QStringLiteral("%1 files").arg(paths.size());
-    m_chooser->open(QStringLiteral("Open %1 With").arg(what), QStringLiteral("Type to find an application"), items,
+    const QString title = paths.size() == 1 ? tr("Open “%1” With").arg(nameOf(paths.first()))
+                                            : tr("Open %n Files With", nullptr, int(paths.size()));
+    m_chooser->open(title, tr("Type to find an application"), items,
                     false, {}, [this, paths](const Chooser::Item &item) {
                         const DesktopEntry app = MimeApps::application(item.value);
                         if (app.isValid())
@@ -141,16 +141,16 @@ void Browser::changeIcon(const QString &path)
             return items;
         file = QDir::cleanPath(file);
         if (QFileInfo(file).isFile() && QImageReader(file).canRead())
-            items.append({QStringLiteral("The image “%1”").arg(nameOf(file)), file, file,
+            items.append({tr("The image “%1”").arg(nameOf(file)), file, file,
                           IconProvider::sourceFor(file)});
         return items;
     };
     const auto chosen = [this, path](const Chooser::Item &item) {
         if (!m_icons->set(path, item.value))
-            m_ops->say(QStringLiteral("The icon could not be saved in “%1”.").arg(Riley::CustomIcons::storeFile()));
+            m_ops->say(tr("The icon could not be saved in “%1”.").arg(Riley::CustomIcons::storeFile()));
     };
-    const int ticket = m_chooser->open(QStringLiteral("Icon for “%1”").arg(nameOf(path)),
-                                       QStringLiteral("Type an icon's name, or the path of an image file"), {},
+    const int ticket = m_chooser->open(tr("Icon for “%1”").arg(nameOf(path)),
+                                       tr("Type an icon's name, or the path of an image file"), {},
                                        true, extra, chosen);
 
     // The icon themes are walked off the UI thread; the names come back here.
@@ -178,5 +178,5 @@ void Browser::resetIcon(const QString &path)
     if (path.isEmpty())
         return;
     if (!m_icons->reset(path))
-        m_ops->say(QStringLiteral("The icon could not be saved in “%1”.").arg(Riley::CustomIcons::storeFile()));
+        m_ops->say(tr("The icon could not be saved in “%1”.").arg(Riley::CustomIcons::storeFile()));
 }

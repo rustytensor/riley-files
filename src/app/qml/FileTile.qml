@@ -19,10 +19,16 @@ Item {
 
     readonly property bool current: GridView.isCurrentItem
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: name
+    Accessible.selected: current
+    Accessible.onPressAction: browser.clickRow(index)
+
     Rectangle {
         anchors { fill: parent; margins: 3 }
         radius: Theme.radius
-        color: tile.current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+        color: tile.current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+        Behavior on color { ColorAnimation { duration: Theme.quick } }
         border.width: tile.current ? 1 : 0
         border.color: Theme.accent
     }

@@ -5,6 +5,7 @@
 
 #include "trash.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -89,7 +90,7 @@ void PlacesModel::reload()
         file.open(QIODevice::ReadOnly) ? parseUserDirs(file.readAll(), home) : QHash<QString, QString>();
 
     QList<Place> places;
-    places.append({QStringLiteral("Home"), home, QStringLiteral("home")});
+    places.append({QCoreApplication::translate("Places", "Home"), home, QStringLiteral("home")});
     for (const UserDir &dir : userDirs) {
         const QString key = QString::fromLatin1(dir.key);
         const QString path = named.contains(key) ? named.value(key)
@@ -100,7 +101,7 @@ void PlacesModel::reload()
         const QString name = named.contains(key) ? QFileInfo(path).fileName() : QString::fromLatin1(dir.usualName);
         places.append({name, path, QString::fromLatin1(dir.icon)});
     }
-    places.append({QStringLiteral("Trash"), Trash::homeTrashPath() + QStringLiteral("/files"), QStringLiteral("trash")});
+    places.append({QCoreApplication::translate("Places", "Trash"), Trash::homeTrashPath() + QStringLiteral("/files"), QStringLiteral("trash")});
 
     const bool countChanges = places.size() != m_places.size();
     beginResetModel();

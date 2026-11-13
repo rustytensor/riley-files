@@ -3,6 +3,7 @@
 
 #include "recentfiles.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -359,20 +360,20 @@ bool RecentFiles::record(const QString &path, const QString &mimeType, QString *
     QFile file(target);
     if (file.exists()) {
         if (!file.open(QIODevice::ReadOnly))
-            return fail(QStringLiteral("“%1” could not be read: %2").arg(target, file.errorString()));
+            return fail(QCoreApplication::translate("RecentFiles", "“%1” could not be read: %2").arg(target, file.errorString()));
         text = QString::fromUtf8(file.readAll());
         file.close();
     }
     const std::optional<QString> updated = recordIn(text, path, mimeType, QDateTime::currentDateTimeUtc());
     if (!updated)
-        return fail(QStringLiteral("“%1” is not a bookmark file that can be read; it was left as it is.").arg(target));
+        return fail(QCoreApplication::translate("RecentFiles", "“%1” is not a bookmark file that can be read; it was left as it is.").arg(target));
     QDir().mkpath(QFileInfo(target).absolutePath());
     QSaveFile out(target);
     if (!out.open(QIODevice::WriteOnly))
-        return fail(QStringLiteral("“%1” could not be written: %2").arg(target, out.errorString()));
+        return fail(QCoreApplication::translate("RecentFiles", "“%1” could not be written: %2").arg(target, out.errorString()));
     const QByteArray bytes = updated->toUtf8();
     if (out.write(bytes) != bytes.size() || !out.commit())
-        return fail(QStringLiteral("“%1” could not be written: %2").arg(target, out.errorString()));
+        return fail(QCoreApplication::translate("RecentFiles", "“%1” could not be written: %2").arg(target, out.errorString()));
     return true;
 }
 

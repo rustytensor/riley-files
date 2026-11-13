@@ -15,14 +15,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(GNUInstallDirs)
 include(CTest)   # defines BUILD_TESTING (on by default) and enables ctest
 
-set(rf_qt_components Core Gui Qml Quick)
+set(rf_qt_components Core Gui Qml Quick LinguistTools)
 if(BUILD_TESTING)
     list(APPEND rf_qt_components Test)
 endif()
 find_package(Qt6 6.8 REQUIRED COMPONENTS ${rf_qt_components})
 
 # Turns on automoc and the Qt 6.8 policies (QML modules under /qt/qml, and so on).
-qt_standard_project_setup(REQUIRES 6.8)
+qt_standard_project_setup(REQUIRES 6.8
+    I18N_SOURCE_LANGUAGE en
+    I18N_TRANSLATED_LANGUAGES de fr)
 
 # Our own targets link this to get the warning flags. Kept off Qt's generated helper
 # targets so the "no warnings" rule is about code we write.

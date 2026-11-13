@@ -18,11 +18,15 @@ Rectangle {
     visible: ops.asking
     color: Theme.scrim
 
-    // Clicks and the wheel stay here while the question is open.
+    Accessible.role: Accessible.Dialog
+    Accessible.name: ops.clashTitle
+
+    // Clicks and the wheel stay here while the question is open; it is not a control.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         onWheel: wheel => wheel.accepted = true
+        Accessible.ignored: true
     }
 
     Rectangle {
@@ -55,9 +59,9 @@ Rectangle {
                 columnSpacing: Theme.spacing
                 rowSpacing: 4
 
-                Text { text: "Already there"; color: Theme.textFaint; font.pixelSize: Theme.fontSmall }
+                Text { text: qsTr("Already there"); color: Theme.textFaint; font.pixelSize: Theme.fontSmall }
                 Text { text: dialog.ops.clashOld; color: Theme.textMuted; font.pixelSize: Theme.fontSmall }
-                Text { text: "Coming in"; color: Theme.textFaint; font.pixelSize: Theme.fontSmall }
+                Text { text: qsTr("Coming in"); color: Theme.textFaint; font.pixelSize: Theme.fontSmall }
                 Text { text: dialog.ops.clashNew; color: Theme.textMuted; font.pixelSize: Theme.fontSmall }
             }
 
@@ -67,12 +71,18 @@ Rectangle {
                 visible: dialog.ops.clashOffersForAll
                 spacing: 8
 
+                Accessible.role: Accessible.CheckBox
+                Accessible.name: qsTr("Do the same for the rest")
+                Accessible.checkable: true
+                Accessible.checked: dialog.ops.clashForAll
+                Accessible.onPressAction: dialog.ops.clashForAll = !dialog.ops.clashForAll
+
                 Rectangle {
                     width: 16
                     height: 16
                     radius: 3
                     anchors.verticalCenter: parent.verticalCenter
-                    color: dialog.ops.clashForAll ? Theme.accent : "transparent"
+                    color: dialog.ops.clashForAll ? Theme.accent : Theme.none
                     border.color: dialog.ops.clashForAll ? Theme.accent : Theme.textFaint
                     border.width: 1
 
@@ -80,12 +90,12 @@ Rectangle {
                         anchors.centerIn: parent
                         visible: dialog.ops.clashForAll
                         text: "✓"
-                        color: Theme.card
+                        color: Theme.onAccent
                         font.pixelSize: Theme.fontSmall
                     }
                 }
                 Text {
-                    text: "Do the same for the rest  (A)"
+                    text: qsTr("Do the same for the rest  (A)")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontNormal
                     anchors.verticalCenter: parent.verticalCenter
@@ -101,11 +111,11 @@ Rectangle {
                 Repeater {
                     // Merge only when a folder meets a folder.
                     model: [
-                        { name: "skipButton", label: "Skip", key: "S", button: FileOps.SkipButton },
-                        { name: "keepBothButton", label: "Keep both", key: "K", button: FileOps.KeepBothButton },
-                        { name: "replaceButton", label: "Replace", key: "R", button: FileOps.ReplaceButton }
+                        { name: "skipButton", label: qsTr("Skip"), key: "S", button: FileOps.SkipButton },
+                        { name: "keepBothButton", label: qsTr("Keep both"), key: "K", button: FileOps.KeepBothButton },
+                        { name: "replaceButton", label: qsTr("Replace"), key: "R", button: FileOps.ReplaceButton }
                     ].concat(dialog.ops.clashCanMerge
-                             ? [{ name: "mergeButton", label: "Merge", key: "M", button: FileOps.MergeButton }]
+                             ? [{ name: "mergeButton", label: qsTr("Merge"), key: "M", button: FileOps.MergeButton }]
                              : [])
 
                     delegate: Rectangle {
@@ -116,11 +126,18 @@ Rectangle {
                         readonly property string text: modelData.label
 
                         objectName: modelData.name
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData.label
+                        Accessible.description: modelData.key
+                        Accessible.focusable: true
+                        Accessible.focused: chosen
+                        Accessible.onPressAction: dialog.ops.answerClash(modelData.button)
                         width: label.implicitWidth + Theme.spacing * 3
                         height: Theme.buttonHeight
                         radius: Theme.radius
                         color: chosen ? Theme.accentSoft : (mouse.containsMouse ? Theme.buttonHover : Theme.button)
-                        border.color: chosen ? Theme.accent : "transparent"
+                        Behavior on color { ColorAnimation { duration: Theme.quick } }
+                        border.color: chosen ? Theme.accent : Theme.none
                         border.width: 1
 
                         Text {
@@ -145,8 +162,8 @@ Rectangle {
                 width: parent.width
                 horizontalAlignment: Text.AlignRight
                 text: dialog.ops.clashCanMerge
-                      ? "← → choose · Return answers · S, K, R, M · Merge puts its items into the folder already there, asking about each name taken"
-                      : "← → choose · Return answers · S, K, R · Replace sends the old one to the trash"
+                      ? qsTr("← → or Tab choose · Return answers · S, K, R, M · Merge puts its items into the folder already there, asking about each name taken")
+                      : qsTr("← → or Tab choose · Return answers · S, K, R · Replace sends the old one to the trash")
                 wrapMode: Text.Wrap
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontSmall

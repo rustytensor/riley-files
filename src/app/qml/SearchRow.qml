@@ -23,8 +23,15 @@ Rectangle {
     // The folder it is in, below the folder searched; the folder searched itself by its name.
     readonly property string where: place.length > 0 ? place : browser.folderName
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: name
+    Accessible.description: inside ? qsTr("in %1, line %2: %3").arg(where).arg(line).arg(text) : qsTr("in %1").arg(where)
+    Accessible.selected: current
+    Accessible.onPressAction: browser.clickSearchRow(index)
+
     height: inside ? Theme.rowHeight * 2 : Theme.rowHeight
-    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
     Rectangle {
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
@@ -63,7 +70,7 @@ Rectangle {
         }
         height: Theme.rowHeight
         verticalAlignment: Text.AlignVCenter
-        text: "in " + row.where
+        text: qsTr("in %1").arg(row.where)
         textFormat: Text.PlainText
         elide: Text.ElideMiddle
         color: Theme.textFaint

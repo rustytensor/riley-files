@@ -62,10 +62,15 @@ Item {
             border.color: Theme.cardBorder
             border.width: 1
 
-            // The menu takes the mouse, so a click on it never reaches what is below.
+            Accessible.role: Accessible.PopupMenu
+            Accessible.name: qsTr("Menu")
+
+            // The menu takes the mouse, so a click on it never reaches what is below. It is not a
+            // control of its own.
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.AllButtons
+                Accessible.ignored: true
             }
 
             Column {
@@ -96,6 +101,14 @@ Item {
 
                         width: column.width
                         height: separator ? Theme.spacing : Theme.menuRowHeight
+
+                        Accessible.role: separator ? Accessible.Separator : Accessible.MenuItem
+                        Accessible.name: separator ? qsTr("Separator") : label
+                        Accessible.description: shortcut
+                        Accessible.checkable: checkable
+                        Accessible.checked: checked
+                        Accessible.selected: current
+                        Accessible.onPressAction: if (!separator) popups.actions.choose(levelIndex, row)
 
                         Rectangle {
                             visible: entry.separator

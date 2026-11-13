@@ -22,7 +22,7 @@ Rectangle {
 
         Text {
             anchors { left: parent.left; leftMargin: Theme.spacing * 1.5; verticalCenter: parent.verticalCenter }
-            text: list.count === 0 ? "No files were used lately." : "Used lately, newest first"
+            text: list.count === 0 ? qsTr("No files were used lately.") : qsTr("Used lately, newest first")
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
         }

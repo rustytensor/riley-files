@@ -14,8 +14,8 @@ Rectangle {
     property int rowIndex: -1
     property string title
     property string where
-    // What comes before `where`: "in " for a folder; nothing for a version's description.
-    property string wherePrefix: "in "
+    // How `where` is shown: "in <folder>" for a folder; as it is for a version's description.
+    property string whereFormat: qsTr("in %1")
     property string when
     property bool isFolder: false
 
@@ -23,8 +23,15 @@ Rectangle {
 
     readonly property bool current: browser.placeRow === rowIndex
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: title
+    Accessible.description: [where.length > 0 ? whereFormat.arg(where) : "", when].filter(s => s.length > 0).join(", ")
+    Accessible.selected: current
+    Accessible.onPressAction: browser.clickPlaceRow(rowIndex)
+
     height: Theme.rowHeight
-    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
     Rectangle {
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
@@ -57,7 +64,7 @@ Rectangle {
             right: date.left; rightMargin: Theme.spacing
             verticalCenter: parent.verticalCenter
         }
-        text: row.where.length > 0 ? row.wherePrefix + row.where : ""
+        text: row.where.length > 0 ? row.whereFormat.arg(row.where) : ""
         textFormat: Text.PlainText
         elide: Text.ElideMiddle
         color: Theme.textFaint

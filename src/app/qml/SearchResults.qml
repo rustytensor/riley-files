@@ -79,7 +79,7 @@ Rectangle {
         anchors.centerIn: view
         visible: view.count === 0 && results.browser.searchText.length > 0 && !results.browser.search.running
                  && results.browser.search.message.length === 0
-        text: "Nothing matches “" + results.browser.searchText + "”."
+        text: qsTr("Nothing matches “%1”.").arg(results.browser.searchText)
         textFormat: Text.PlainText
         color: Theme.textMuted
         font.pixelSize: Theme.fontNormal

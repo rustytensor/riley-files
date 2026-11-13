@@ -37,6 +37,8 @@ Rectangle {
     TextInput {
         id: input
         objectName: "renameField"
+        Accessible.role: Accessible.EditableText
+        Accessible.name: qsTr("New name")
 
         anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
         verticalAlignment: TextInput.AlignVCenter

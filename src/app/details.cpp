@@ -3,6 +3,8 @@
 
 #include "details.h"
 
+#include "translations.h"
+
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -37,9 +39,9 @@ FileDetails::~FileDetails() = default;
 QString FileDetails::sizeTextFor(qint64 bytes)
 {
     if (bytes == 1)
-        return QStringLiteral("1 byte");
+        return tr("1 byte");
     if (bytes < 1000)
-        return QStringLiteral("%1 bytes").arg(bytes);
+        return tr("%1 bytes").arg(bytes);
     static const char *const units[] = {"KB", "MB", "GB", "TB", "PB"};
     double value = double(bytes);
     int unit = -1;
@@ -48,16 +50,16 @@ QString FileDetails::sizeTextFor(qint64 bytes)
         ++unit;
     }
     const QString amount = value < 10.0 ? QString::number(value, 'f', 1) : QString::number(qRound(value));
-    return QStringLiteral("%1 %2 (%3 bytes)").arg(amount, QLatin1String(units[unit]), withSeparators(bytes));
+    return tr("%1 %2 (%3 bytes)").arg(amount, QLatin1String(units[unit]), withSeparators(bytes));
 }
 
 QString FileDetails::itemsTextFor(qint64 items)
 {
     if (items == 0)
-        return QStringLiteral("No items");
+        return tr("No items");
     if (items == 1)
-        return QStringLiteral("1 item");
-    return QStringLiteral("%1 items").arg(withSeparators(items));
+        return tr("1 item");
+    return tr("%1 items").arg(withSeparators(items));
 }
 
 QString FileDetails::permissionsTextFor(const QString &path)
@@ -83,7 +85,8 @@ QString FileDetails::dateTextFor(const QDateTime &when)
 {
     if (!when.isValid())
         return {};
-    return QLocale::c().toString(when.toLocalTime(), QStringLiteral("d MMMM yyyy, HH:mm"));
+    // The order of day, month and year follows the language of the words; the month names come with it.
+    return Translations::locale().toString(when.toLocalTime(), tr("d MMMM yyyy, HH:mm"));
 }
 
 QString FileDetails::categoryFor(const QString &mimeName, bool isDir)
@@ -128,9 +131,9 @@ void FileDetails::refresh()
         m_modifiedText = dateTextFor(info.lastModified());
         m_permissions = permissionsTextFor(m_path);
         if (m_isDir) {
-            m_kind = QStringLiteral("Folder");
+            m_kind = tr("Folder");
             m_category = QStringLiteral("folder");
-            m_sizeText = QStringLiteral("Counting…");
+            m_sizeText = tr("Counting…");
             countItems();
         } else {
             const QMimeType mime = QMimeDatabase().mimeTypeForFile(info);
@@ -170,7 +173,7 @@ void FileDetails::countItems()
             ++items;
         }
         const QString text = QFileInfo(path).isReadable() ? itemsTextFor(items)
-                                                          : QStringLiteral("Cannot be read");
+                                                          : tr("Cannot be read");
         QMetaObject::invokeMethod(
             qApp, [self, generation, text] {
                 if (!self || self->m_generation != generation)

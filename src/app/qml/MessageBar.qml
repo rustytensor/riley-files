@@ -15,6 +15,9 @@ Rectangle {
     implicitHeight: visible ? Math.max(Theme.rowHeight + 8, text.implicitHeight + 16) : 0
     color: Theme.notice
 
+    Accessible.role: Accessible.AlertMessage
+    Accessible.name: ops.message
+
     Text {
         id: text
         objectName: "messageText"
@@ -35,6 +38,10 @@ Rectangle {
         text: "×"
         color: closeMouse.containsMouse ? Theme.text : Theme.noticeText
         font.pixelSize: Theme.fontLarge
+
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Dismiss the message")
+        Accessible.onPressAction: bar.ops.dismissMessage()
 
         MouseArea {
             id: closeMouse

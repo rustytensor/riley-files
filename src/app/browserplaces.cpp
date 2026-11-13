@@ -18,11 +18,6 @@ const QString trashPlace = QStringLiteral("trash");
 const QString recentPlace = QStringLiteral("recent");
 const QString versionsPlace = QStringLiteral("versions");
 
-QString items(qsizetype n)
-{
-    return n == 1 ? QStringLiteral("1 item") : QStringLiteral("%1 items").arg(n);
-}
-
 } // namespace
 
 QString Browser::trashPlacePath()
@@ -180,7 +175,7 @@ void Browser::restoreRow(int row)
         return;
     const QString path = m_trash->pathAt(row);
     if (path.isEmpty()) {
-        m_ops->say(QStringLiteral("Choose something in the trash to restore."));
+        m_ops->say(tr("Choose something in the trash to restore."));
         return;
     }
     m_ops->restore({path});
@@ -201,11 +196,13 @@ void Browser::emptyTrash()
     reloadTrash();
     const QStringList paths = m_trash->paths();
     if (paths.isEmpty()) {
-        m_ops->say(QStringLiteral("The trash is empty."));
+        m_ops->say(tr("The trash is empty."));
         return;
     }
-    ask(QStringLiteral("Empty the trash? The %1 in it will be deleted for good; this cannot be undone.")
-            .arg(items(paths.size())),
+    ask(paths.size() == 1
+            ? tr("Empty the trash? The 1 item in it will be deleted for good; this cannot be undone.")
+            : tr("Empty the trash? The %n items in it will be deleted for good; this cannot be undone.", nullptr,
+                 int(paths.size())),
         [this, paths] { m_ops->deleteForGood(paths); });
 }
 
@@ -226,8 +223,8 @@ void Browser::deleteTargetsForGood()
 void Browser::askDeleteForGood(const QStringList &paths, const QString &name)
 {
     const QString text = paths.size() == 1
-                             ? QStringLiteral("Delete “%1” for good? This cannot be undone.").arg(name)
-                             : QStringLiteral("Delete %1 for good? This cannot be undone.").arg(items(paths.size()));
+                             ? tr("Delete “%1” for good? This cannot be undone.").arg(name)
+                             : tr("Delete %n items for good? This cannot be undone.", nullptr, int(paths.size()));
     ask(text, [this, paths] { m_ops->deleteForGood(paths); });
 }
 
@@ -327,5 +324,5 @@ void Browser::connectToServer(const QString &uri)
         m_ops->say(why);
         return;
     }
-    m_ops->say(QStringLiteral("Connecting to %1…").arg(address));
+    m_ops->say(tr("Connecting to %1…").arg(address));
 }

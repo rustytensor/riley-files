@@ -26,8 +26,15 @@ Rectangle {
     readonly property int indent: browser.tree ? depth * Theme.indent : 0
     readonly property int textLeft: Theme.spacing * 1.5 + indent + (browser.tree ? Theme.indent : 0)
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: name
+    Accessible.description: isDir ? modifiedText : [sizeText, modifiedText].filter(s => s.length > 0).join(", ")
+    Accessible.selected: current
+    Accessible.onPressAction: browser.clickRow(index)
+
     height: Theme.rowHeight
-    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : "transparent")
+    color: current ? Theme.cursorRow : (mouse.containsMouse ? Theme.hoverRow : Theme.none)
+    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
     // The cursor's left edge, in the one colour that marks what is chosen.
     Rectangle {
@@ -56,6 +63,13 @@ Rectangle {
         text: row.open ? "▾" : "▸"
         color: Theme.textMuted
         font.pixelSize: Theme.fontSmall
+
+        Accessible.role: Accessible.Button
+        Accessible.name: row.open ? qsTr("Close “%1”").arg(row.name) : qsTr("Open “%1” in place").arg(row.name)
+        Accessible.onPressAction: {
+            row.browser.cursor = row.index
+            row.browser.model.toggleOpen(row.index)
+        }
 
         MouseArea {
             anchors.fill: parent

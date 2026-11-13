@@ -3,6 +3,9 @@
 
 #include "uicheck.h"
 
+#include "browser.h"
+#include "foldermodel.h"
+
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlError>
@@ -49,6 +52,7 @@ void countingHandler(QtMsgType type, const QMessageLogContext &context, const QS
 
 UiCheck::UiCheck()
 {
+    m_clock.start();
     // Draw in software: the check is about the window loading, and should not depend on the
     // machine having a GPU or a display.
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
@@ -84,11 +88,35 @@ int UiCheck::run(QQmlApplicationEngine &engine)
     }
 
     // The first finished frame means the window was shown with all its content in place.
-    connect(window, &QQuickWindow::frameSwapped, this, [this, window] { finish(window, true); },
+    connect(window, &QQuickWindow::frameSwapped, this, [this, window] { frameDone(window); },
             Qt::QueuedConnection);
     QTimer::singleShot(firstFrameTimeoutMs, this, [this, window] { finish(window, false); });
 
     return QGuiApplication::exec();
+}
+
+void UiCheck::frameDone(QQuickWindow *window)
+{
+    if (m_done)
+        return;
+    if (m_browser) {
+        // A frame counts once the folder is read and its files were in the window it drew.
+        const Riley::FolderModel *model = m_browser->model();
+        if (model->isLoading()) {
+            window->update();
+            return;
+        }
+        if (!m_folderSeen) {
+            // The files are in the model; the next frame is the first that shows them.
+            m_folderSeen = true;
+            window->update();
+            return;
+        }
+        std::printf("first-frame %lld ms, %d files\n", static_cast<long long>(m_clock.elapsed()),
+                    model->count());
+        std::fflush(stdout);
+    }
+    finish(window, true);
 }
 
 void UiCheck::finish(QQuickWindow *window, bool shown)
