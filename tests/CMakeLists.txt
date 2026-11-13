@@ -89,3 +89,19 @@ target_link_libraries(appsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME appsui_tests COMMAND appsui_tests)
 set_tests_properties(appsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Search on real files: by name below a folder and inside files through ripgrep, a new search
+# dropping the one before, the row limit and the message when rg is missing.
+add_executable(search_tests search_tests.cpp)
+target_link_libraries(search_tests PRIVATE riley-core riley_warnings Qt6::Test)
+
+add_test(NAME search_tests COMMAND search_tests)
+set_tests_properties(search_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Search in the window: the field from "/", Ctrl+F and Ctrl+Shift+F, the results in the folder's
+# place, Return going to a result's folder, and the window drawing on while a search runs.
+add_executable(searchui_tests searchui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(searchui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME searchui_tests COMMAND searchui_tests)
+set_tests_properties(searchui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

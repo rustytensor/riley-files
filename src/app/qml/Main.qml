@@ -192,18 +192,30 @@ Window {
         Math.ceil(Theme.spacing * 3.75 + 16 + 1),
         Math.ceil(Theme.spacing * 3.25 + Theme.iconSize + 10))
 
+    // The keys go back to the browser, or to the search field while it is shown.
+    function giveKeysBack() {
+        if (root.browser.searchShown)
+            header.focusSearch()
+        else
+            keys.forceActiveFocus()
+    }
+
     // Once a name is no longer edited, the keys go back to the browser.
     Connections {
         target: root.browser.ops
         function onEditingChanged() {
             if (!root.browser.ops.editing)
-                keys.forceActiveFocus()
+                root.giveKeysBack()
         }
     }
     Connections {
         target: root.browser
         function onLocationEditingChanged() {
             if (!root.browser.locationEditing)
+                root.giveKeysBack()
+        }
+        function onSearchShownChanged() {
+            if (!root.browser.searchShown)
                 keys.forceActiveFocus()
         }
         function onCloseWindowAsked() { root.close() }
@@ -212,8 +224,8 @@ Window {
         target: root.browser.prefs
         function onEditingChanged() {
             if (root.browser.prefs.editing < 0)
-                keys.forceActiveFocus()
+                root.giveKeysBack()
         }
-        function onShownChanged() { keys.forceActiveFocus() }
+        function onShownChanged() { root.giveKeysBack() }
     }
 }

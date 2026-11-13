@@ -50,9 +50,12 @@ Rectangle {
         NavButton { glyph: "↑"; active: bar.browser.canGoUp; onClicked: bar.browser.goUp() }
     }
 
+    // Gives the typing to the search field, when it is shown.
+    function focusSearch() { search.forceActiveFocus() }
+
     Text {
         id: title
-        visible: !bar.browser.locationEditing
+        visible: !bar.browser.locationEditing && !bar.browser.searchShown
         anchors { left: nav.right; leftMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
         text: bar.browser.folderName.length > 0 ? bar.browser.folderName : "Files"
         color: Theme.text
@@ -66,7 +69,7 @@ Rectangle {
             right: tools.left; rightMargin: Theme.spacing
             baseline: title.baseline
         }
-        visible: !bar.browser.locationEditing
+        visible: !bar.browser.locationEditing && !bar.browser.searchShown
         text: bar.browser.folder
         color: Theme.textFaint
         font.pixelSize: Theme.fontSmall
@@ -122,6 +125,104 @@ Rectangle {
                 event.accepted = true
             }
             onActiveFocusChanged: if (!activeFocus && locationBox.visible) bar.browser.cancelLocation()
+        }
+    }
+
+    // The search ('/', Ctrl+F; Ctrl+Shift+F inside files). What is typed goes to the browser,
+    // which searches again; the keys it uses (Return, Escape, Up, Down, ...) go to it first.
+    Rectangle {
+        id: searchBox
+        objectName: "searchBox"
+        visible: bar.browser.searchShown
+        anchors {
+            left: nav.right; leftMargin: Theme.spacing
+            right: tools.left; rightMargin: Theme.spacing
+            verticalCenter: parent.verticalCenter
+        }
+        height: Theme.rowHeight
+        radius: 4
+        color: Theme.field
+        border.color: Theme.accent
+        border.width: 1
+
+        onVisibleChanged: {
+            if (visible) {
+                search.text = bar.browser.searchText
+                search.forceActiveFocus()
+            }
+        }
+
+        TextInput {
+            id: search
+            objectName: "searchField"
+
+            anchors {
+                left: parent.left; leftMargin: 6
+                right: modes.left; rightMargin: 6
+                top: parent.top; bottom: parent.bottom
+            }
+            verticalAlignment: TextInput.AlignVCenter
+            clip: true
+            color: Theme.text
+            selectionColor: Theme.selection
+            selectedTextColor: Theme.text
+            font.pixelSize: Theme.fontNormal
+            selectByMouse: true
+
+            Keys.onPressed: event => {
+                event.accepted = bar.browser.searchFieldKey(event.key, event.modifiers, event.text)
+            }
+            onTextEdited: bar.browser.setSearchText(text)
+
+            Text {
+                anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                visible: search.text.length === 0
+                text: bar.browser.searchHint
+                color: Theme.textFaint
+                font.pixelSize: Theme.fontNormal
+            }
+        }
+
+        // Names or inside files: a small switch at the field's end.
+        Row {
+            id: modes
+            objectName: "searchModes"
+            anchors { right: parent.right; rightMargin: 3; verticalCenter: parent.verticalCenter }
+            spacing: 2
+
+            component ModeButton: Rectangle {
+                id: modeButton
+
+                property string label
+                property bool on
+
+                objectName: "searchMode" + label
+                width: modeText.implicitWidth + 12
+                height: Theme.rowHeight - 6
+                radius: 3
+                color: on ? Theme.accentSoft : (modeMouse.containsMouse ? Theme.hoverRow : "transparent")
+
+                Text {
+                    id: modeText
+                    anchors.centerIn: parent
+                    text: modeButton.label
+                    color: modeButton.on ? Theme.accent : Theme.textMuted
+                    font.pixelSize: Theme.fontSmall
+                }
+
+                MouseArea {
+                    id: modeMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        bar.browser.searchContents = modeButton.label === "Contents"
+                        search.forceActiveFocus()
+                    }
+                }
+            }
+
+            ModeButton { label: "Names"; on: !bar.browser.searchContents }
+            ModeButton { label: "Contents"; on: bar.browser.searchContents }
         }
     }
 

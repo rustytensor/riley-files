@@ -17,12 +17,13 @@ Rectangle {
     FileList {
         anchors.fill: parent
         browser: area.browser
-        visible: area.browser.view === Browser.List
+        visible: area.browser.view === Browser.List && !area.browser.searchShown
     }
 
     Loader {
         anchors.fill: parent
         active: area.browser.view === Browser.Grid
+        visible: !area.browser.searchShown
         sourceComponent: Component {
             FileGrid { browser: area.browser }
         }
@@ -31,8 +32,16 @@ Rectangle {
     Loader {
         anchors.fill: parent
         active: area.browser.view === Browser.Columns
+        visible: !area.browser.searchShown
         sourceComponent: Component {
             ColumnsView { browser: area.browser }
         }
+    }
+
+    // While searching, the results take the folder's place.
+    SearchResults {
+        anchors.fill: parent
+        browser: area.browser
+        visible: area.browser.searchShown
     }
 }

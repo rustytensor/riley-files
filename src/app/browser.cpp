@@ -76,6 +76,7 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     , m_prefs(std::make_unique<Preferences>(m_settings.get()))
     , m_icons(std::make_unique<Riley::CustomIcons>())
     , m_chooser(std::make_unique<Chooser>())
+    , m_search(std::make_unique<Riley::FileSearch>())
 {
     connect(m_ops.get(), &FileOps::land, this, &Browser::aimCursor);
     // A chosen icon goes with its file through every rename and move made here.
@@ -158,6 +159,17 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     connect(this, &Browser::columnsChanged, this, &Browser::measureColumns);
     connect(this, &Browser::viewChanged, this, &Browser::measureColumns);
     measureSidebar();
+
+    // The search's cursor follows its result as rows come in, and its line of status follows
+    // the search.
+    Riley::FileSearch *search = m_search.get();
+    connect(search, &QAbstractItemModel::modelReset, this, &Browser::followSearchRows);
+    connect(search, &QAbstractItemModel::rowsInserted, this, &Browser::followSearchRows);
+    connect(search, &Riley::FileSearch::started, this, &Browser::searchStatusChanged);
+    connect(search, &Riley::FileSearch::runningChanged, this, &Browser::searchStatusChanged);
+    connect(search, &Riley::FileSearch::countChanged, this, &Browser::searchStatusChanged);
+    connect(search, &Riley::FileSearch::noteChanged, this, &Browser::searchStatusChanged);
+    connect(search, &Riley::FileSearch::messageChanged, this, &Browser::searchStatusChanged);
 }
 
 QString Browser::defaultSettingsFile()
@@ -253,6 +265,8 @@ void Browser::setShowHidden(bool show)
     m_model->setShowHidden(show); // emits showHiddenChanged through the model
     for (qsizetype i = 1; i < m_columns.size(); ++i)
         m_columns.at(i)->model()->setShowHidden(show);
+    if (m_searchShown)
+        runSearch();
     m_prefs->refresh();
 }
 
@@ -393,6 +407,19 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     // While the preview is open, the keys move it along the files or close it.
     if (m_preview->isOpen())
         return previewKey(key, mods);
+    // While the search is shown, it takes the keys; only the commands about the window work.
+    if (m_searchShown) {
+        if (searchKey(key, mods))
+            return true;
+        if (key == Qt::Key_F10 && mods == Qt::NoModifier) {
+            m_actions->openBarMenu(0);
+            return true;
+        }
+        const QString id = m_actions->idForKey(key, mods);
+        if (!id.isEmpty() && searchAllows(id))
+            m_actions->trigger(id);
+        return true;
+    }
 
     // The menus from the keyboard: F10 opens the menu bar's first menu, the Menu key and
     // Shift+F10 the context menu.
@@ -443,6 +470,8 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
 
 void Browser::show(const QString &path, const QString &cursorOn)
 {
+    // Going anywhere ends a search.
+    closeSearch();
     m_aimPath.clear();
     m_ops->cancelRename();
     m_cursorPath = cursorOn;

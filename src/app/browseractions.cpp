@@ -84,6 +84,11 @@ void Browser::addActions()
            {}, {}});
     a.add({u"select-all"_s, u"Select All"_s, key(Qt::Key_A, ctrl), {}, [this] { activeModel()->selectAll(); },
            [this] { return activeModel()->count() > 0; }, {}});
+    a.add({u"find"_s, u"Find"_s, key(Qt::Key_F, ctrl), {key(Qt::Key_Slash), key(Qt::Key_Slash, Qt::ShiftModifier)},
+           [this] { openSearch(false); }, {}, {}});
+    // Again while searching inside files, it goes back to names.
+    a.add({u"find-contents"_s, u"Find in Files"_s, key(Qt::Key_F, ctrlShift), {},
+           [this] { openSearch(!(m_searchShown && m_searchContents)); }, {}, {}});
     a.add({u"preferences"_s, u"Preferences"_s, key(Qt::Key_Comma, ctrl), {},
            [this] { m_prefs->setShown(true); }, {}, {}});
 
@@ -150,7 +155,7 @@ void Browser::addActions()
           item(u"close-window"), item(u"quit")}},
         {u"Edit"_s,
          {item(u"undo"), item(u"redo"), sep, item(u"cut"), item(u"copy"), item(u"paste"), sep,
-          item(u"select-all"), sep, item(u"preferences")}},
+          item(u"select-all"), sep, item(u"find"), item(u"find-contents"), sep, item(u"preferences")}},
         {u"View"_s,
          {item(u"view-grid"), item(u"view-list"), item(u"view-columns"), sep, item(u"tree"), item(u"hidden"),
           sep, item(u"sidebar"), item(u"details"), sep, sortMenu, panesMenu, sep, item(u"reload")}},

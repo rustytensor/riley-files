@@ -10,6 +10,7 @@
 #include "fileops.h"
 #include "foldercolumn.h"
 #include "desktopentry.h"
+#include "filesearch.h"
 #include "foldermodel.h"
 #include "panewidths.h"
 #include "pinnedfolders.h"
@@ -22,6 +23,7 @@
 #include <QList>
 #include <QObject>
 #include <QString>
+#include <QVariantList>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include <functional>
@@ -96,6 +98,19 @@ class Browser : public QObject
     // they ask again.
     Q_PROPERTY(int iconsRevision READ iconsRevision NOTIFY iconsChanged)
 
+    // Search below the folder shown ('/', Ctrl+F for names, Ctrl+Shift+F inside files). While it
+    // is shown, its results take the folder's place and its field in the header takes the typing.
+    Q_PROPERTY(Riley::FileSearch *search READ search CONSTANT)
+    Q_PROPERTY(bool searchShown READ searchShown NOTIFY searchShownChanged)
+    Q_PROPERTY(bool searchContents READ searchContents WRITE setSearchContents NOTIFY searchModeChanged)
+    Q_PROPERTY(QString searchText READ searchText NOTIFY searchTextChanged)
+    // The result the keys are on, or -1.
+    Q_PROPERTY(int searchCursor READ searchCursor WRITE setSearchCursor NOTIFY searchCursorChanged)
+    // One line about the search: how many were found, that it is still looking, or why it cannot.
+    Q_PROPERTY(QString searchStatus READ searchStatus NOTIFY searchStatusChanged)
+    // What the field shows while nothing is typed.
+    Q_PROPERTY(QString searchHint READ searchHint NOTIFY searchModeChanged)
+
 public:
     enum View { List, Grid, Columns };
     Q_ENUM(View)
@@ -163,6 +178,33 @@ public:
     void changeIcon(const QString &path);
     // Reset Icon: `path` gets its usual icon again.
     void resetIcon(const QString &path);
+
+    Riley::FileSearch *search() const { return m_search.get(); }
+    bool searchShown() const { return m_searchShown; }
+    bool searchContents() const { return m_searchContents; }
+    void setSearchContents(bool contents);
+    QString searchText() const { return m_searchText; }
+    int searchCursor() const { return m_searchCursor; }
+    void setSearchCursor(int row);
+    QString searchStatus() const;
+    QString searchHint() const;
+    // Opens the search field (names, or inside files) with nothing typed yet; when it is open
+    // already, switches it to that mode.
+    void openSearch(bool contents);
+    // Closes the search and shows the folder again, as it was.
+    Q_INVOKABLE void closeSearch();
+    // What is typed in the search field; each change starts the search again.
+    Q_INVOKABLE void setSearchText(const QString &text);
+    // A key pressed in the search field. True when it was used; false leaves it to the field.
+    Q_INVOKABLE bool searchFieldKey(int key, int modifiers, const QString &text);
+    // A click on a result, and a double-click: the cursor goes there; a double-click goes to the
+    // result's folder with the cursor on it.
+    Q_INVOKABLE void clickSearchRow(int row);
+    Q_INVOKABLE void openSearchRow(int row);
+    // A matching line as styled text: every character escaped, the matches (start and length
+    // pairs) in bold and in `color` (a #rrggbb colour).
+    Q_INVOKABLE static QString markMatches(const QString &text, const QVariantList &matches,
+                                           const QString &color);
 
     // Opens files with their default application (the first one for their type).
     void openFiles(const QStringList &paths);
@@ -265,6 +307,11 @@ signals:
     void paneWidthsChanged();
     void questionChanged();
     void iconsChanged();
+    void searchShownChanged();
+    void searchModeChanged();
+    void searchTextChanged();
+    void searchCursorChanged();
+    void searchStatusChanged();
 
     // Asks for what the window, not the browser, does: another window on `folder`, and closing
     // this one.
@@ -329,6 +376,12 @@ private:
     void setSidebarCursor(int row);
     // Points the details and the preview at what the keys are on now.
     void followFocus();
+    // Search (browsersearch.cpp).
+    void runSearch();
+    void followSearchRows();
+    bool searchKey(int key, Qt::KeyboardModifiers mods);
+    bool searchAllows(const QString &actionId) const;
+    bool somethingInFront() const;
 
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<Riley::FolderModel> m_model;
@@ -377,4 +430,12 @@ private:
     std::unique_ptr<Riley::CustomIcons> m_icons;
     std::unique_ptr<Chooser> m_chooser;
     int m_iconsRevision = 0;
+
+    std::unique_ptr<Riley::FileSearch> m_search;
+    bool m_searchShown = false;
+    bool m_searchContents = false;
+    QString m_searchText;
+    int m_searchCursor = -1;
+    QString m_searchCursorPath; // the result the cursor is on (path and line), kept as rows come in
+    int m_searchCursorLine = 0;
 };

@@ -30,6 +30,9 @@ add_library(riley-core SHARED
     desktopentry.h desktopentry.cpp
     mimeapps.h mimeapps.cpp
     customicons.h customicons.cpp
+    # Search (milestone 5): filesearch.h finds files below a folder by name, or inside them
+    # through ripgrep, off the UI thread.
+    filesearch.h filesearch.cpp
 )
 
 include(GenerateExportHeader)

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "filesearch.h"
 #include "foldermodel.h"
 #include "pinnedfolders.h"
 #include "places.h"
@@ -32,4 +33,12 @@ struct PinnedModelForeign
     QML_FOREIGN(Riley::PinnedModel)
     QML_NAMED_ELEMENT(PinnedModel)
     QML_UNCREATABLE("The pinned folders are made by the program.")
+};
+
+struct FileSearchForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::FileSearch)
+    QML_NAMED_ELEMENT(FileSearch)
+    QML_UNCREATABLE("The search is made by the program.")
 };
