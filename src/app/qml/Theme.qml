@@ -31,6 +31,21 @@ QtObject {
     property color restingRow: "#1f242c"
     property color treeGuide: "#343a45"
 
+    // Editing a name: the field and its selected text.
+    property color field: "#101216"
+    property color selection: "#33507a"
+
+    // File operations: the progress strip, messages, and the question about a taken name.
+    property color strip: "#1b1e24"
+    property color track: "#2a2f38"
+    property color button: "#262a32"
+    property color buttonHover: "#2f343e"
+    property color notice: "#2b2620"
+    property color noticeText: "#e3c58c"
+    property color scrim: "#a0000000"
+    property color card: "#1f232a"
+    property color cardBorder: "#323844"
+
     // File icons: folders in the accent's family, files by what they hold.
     property color folder: "#6f93c4"
     property color folderTab: "#5a7aa6"
@@ -62,6 +77,9 @@ QtObject {
     property int sidebarWidth: 220
     property int spacing: 12
     property int radius: 8
+    property int stripHeight: 58
+    property int buttonHeight: 32
+    property int dialogWidth: 460
 
     property int fontSmall: 12
     property int fontNormal: 14

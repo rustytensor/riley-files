@@ -9,6 +9,7 @@
 
 qt_add_library(riley-ui SHARED
     browser.h browser.cpp
+    fileops.h fileops.cpp
     foldercolumn.h foldercolumn.cpp
     appwindow.h appwindow.cpp
     commandline.h commandline.cpp
@@ -30,6 +31,10 @@ set(rf_qml_files
     qml/ColumnsView.qml
     qml/ColumnPane.qml
     qml/ColumnRow.qml
+    qml/RenameField.qml
+    qml/ProgressStrip.qml
+    qml/MessageBar.qml
+    qml/ClashDialog.qml
 )
 
 # Theme is one shared object, so every part of the window reads the same colours.

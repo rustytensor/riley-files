@@ -57,7 +57,10 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     , m_settings(settingsFile.isEmpty() ? std::make_unique<QSettings>()
                                         : std::make_unique<QSettings>(settingsFile, QSettings::IniFormat))
     , m_model(std::make_unique<FolderModel>())
+    , m_ops(std::make_unique<FileOps>())
 {
+    connect(m_ops.get(), &FileOps::land, this, &Browser::aimCursor);
+
     m_view = viewFromName(m_settings->value(viewKey).toString());
     m_tree = m_settings->value(treeKey, false).toBool();
     m_model->setShowHidden(m_settings->value(hiddenKey, false).toBool());
@@ -99,6 +102,7 @@ QString Browser::folderName() const
 void Browser::setCursor(int row)
 {
     m_cursorWaiting = false;
+    m_aimPath.clear();
     placeCursor(row);
 }
 
@@ -281,6 +285,12 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
 {
     const Qt::KeyboardModifiers mods = Qt::KeyboardModifiers(modifiers) & ~Qt::KeypadModifier;
 
+    // While a name clash is asked, the keys answer it and do nothing else.
+    if (m_ops->asking())
+        return m_ops->clashKey(key, mods);
+    if (fileKey(key, mods))
+        return true;
+
     if (key == Qt::Key_Back) {
         goBack();
         return true;
@@ -359,6 +369,8 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
 
 void Browser::show(const QString &path, const QString &cursorOn)
 {
+    m_aimPath.clear();
+    m_ops->cancelRename();
     m_cursorPath = cursorOn;
     m_cursorWaiting = true;
     m_rootLoaded = false;
@@ -396,6 +408,8 @@ void Browser::placeCursor(int row)
 // keep it about where it was.
 void Browser::followRows()
 {
+    if (landAim())
+        return;
     const int row = m_cursorPath.isEmpty() ? -1 : m_model->rowOfPath(m_cursorPath);
     if (row >= 0) {
         m_cursorWaiting = false;
@@ -713,4 +727,110 @@ void Browser::closeColumnsAfter(int column)
     emit columnsChanged();
     for (FolderColumn *old : gone)
         old->deleteLater();
+}
+
+// The file keys, the same in every view.
+bool Browser::fileKey(int key, Qt::KeyboardModifiers mods)
+{
+    if (mods == Qt::ControlModifier) {
+        switch (key) {
+        case Qt::Key_C:
+            m_ops->copy(targetPaths(), false);
+            return true;
+        case Qt::Key_X:
+            m_ops->copy(targetPaths(), true);
+            return true;
+        case Qt::Key_V:
+            if (!m_ops->paste(workFolder()))
+                m_ops->say(QStringLiteral("There are no files on the clipboard to paste."));
+            return true;
+        case Qt::Key_Z:
+            m_ops->undo();
+            return true;
+        case Qt::Key_Y:
+            m_ops->redo();
+            return true;
+        default:
+            return false;
+        }
+    }
+    if (mods == (Qt::ControlModifier | Qt::ShiftModifier)) {
+        switch (key) {
+        case Qt::Key_N:
+            m_ops->newFolder(workFolder());
+            return true;
+        case Qt::Key_Z:
+            m_ops->redo();
+            return true;
+        default:
+            return false;
+        }
+    }
+    if (mods == Qt::NoModifier) {
+        switch (key) {
+        case Qt::Key_F2: {
+            const QString path = activeModel()->pathAt(activeCursor());
+            if (!path.isEmpty())
+                m_ops->startRename(path);
+            return true;
+        }
+        case Qt::Key_Delete:
+            m_ops->trash(targetPaths());
+            return true;
+        case Qt::Key_Escape:
+            m_ops->dismissMessage();
+            return true;
+        default:
+            return false;
+        }
+    }
+    return false;
+}
+
+QStringList Browser::targetPaths() const
+{
+    FolderModel *model = activeModel();
+    QStringList paths = model->selectedPaths();
+    if (paths.isEmpty()) {
+        const QString path = model->pathAt(activeCursor());
+        if (!path.isEmpty())
+            paths.append(path);
+    }
+    return paths;
+}
+
+QString Browser::workFolder() const
+{
+    return activeModel()->path();
+}
+
+void Browser::aimCursor(const QString &path, bool edit)
+{
+    const QString parent = QFileInfo(path).absolutePath();
+    if (parent != folder() && m_model->rowOfPath(parent) < 0)
+        return;
+    m_aimPath = path;
+    m_aimEdit = edit;
+    landAim();
+}
+
+bool Browser::landAim()
+{
+    if (m_aimPath.isEmpty())
+        return false;
+    const int row = m_model->rowOfPath(m_aimPath);
+    if (row < 0)
+        return false;
+    const QString path = m_aimPath;
+    const bool edit = m_aimEdit;
+    m_aimPath.clear();
+    m_cursorWaiting = false;
+    if (m_view == Columns) {
+        closeColumnsAfter(0);
+        setActiveColumn(0);
+    }
+    placeCursor(row);
+    if (edit)
+        m_ops->startRename(path);
+    return true;
 }

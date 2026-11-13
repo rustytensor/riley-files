@@ -90,6 +90,18 @@ Item {
         }
     }
 
+    // The name of the cursor's row, being edited in place.
+    RenameField {
+        readonly property FileRow row: view.currentItem as FileRow
+
+        ops: list.browser.ops
+        active: view.visible && row !== null
+        x: row ? row.textLeft + Theme.iconSize + Theme.spacing - 6 : 0
+        y: view.y + (row ? row.y - view.contentY : 0) + 2
+        width: Math.max(Theme.tileWidth, view.width - x - Theme.sizeColumn - Theme.dateColumn - Theme.spacing * 3)
+        height: Theme.rowHeight - 4
+    }
+
     // Shown when there is nothing to list.
     Text {
         anchors.centerIn: view

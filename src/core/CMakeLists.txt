@@ -9,6 +9,17 @@ add_library(riley-core SHARED
     entryorder.h entryorder.cpp
     folderlisting.h folderlisting.cpp
     foldermodel.h foldermodel.cpp
+    # File operations (milestone 2): jobs run off the UI thread by a queue. filejob.h is the
+    # base (progress, stop, clash questions, failures, the steps an undo needs); filejobs.h the
+    # copy, move, rename and new folder jobs; trash.h the freedesktop home trash and
+    # trashjobs.h the trash, restore and delete-for-good jobs; undohistory.h undo and redo.
+    filenames.h filenames.cpp
+    filejob.h filejob.cpp
+    filejobs.h filejobs.cpp
+    jobqueue.h jobqueue.cpp
+    trash.h trash.cpp
+    trashjobs.h trashjobs.cpp
+    undohistory.h undohistory.cpp
 )
 
 include(GenerateExportHeader)

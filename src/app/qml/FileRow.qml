@@ -79,6 +79,8 @@ Rectangle {
             verticalCenter: parent.verticalCenter
         }
         text: row.name
+        // While the name is edited, the field over it shows it instead.
+        visible: !(row.current && row.browser.ops.editing)
         elide: Text.ElideMiddle
         color: row.hidden ? Theme.textMuted : Theme.text
         font.pixelSize: Theme.fontNormal

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "fileops.h"
 #include "foldercolumn.h"
 #include "foldermodel.h"
 
@@ -40,6 +41,7 @@ class Browser : public QObject
     Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
     Q_PROPERTY(QList<QObject *> columns READ columns NOTIFY columnsChanged)
     Q_PROPERTY(int activeColumn READ activeColumn NOTIFY activeColumnChanged)
+    Q_PROPERTY(FileOps *ops READ ops CONSTANT)
 
 public:
     enum View { List, Grid, Columns };
@@ -53,6 +55,8 @@ public:
     QString folder() const { return m_model->path(); }
     QString folderName() const;
     Riley::FolderModel *model() const { return m_model.get(); }
+    // Copy, paste, rename, trash, undo: what the file keys do.
+    FileOps *ops() const { return m_ops.get(); }
 
     // The row the keys act on; -1 when the folder has no rows (yet).
     int cursor() const { return m_cursor; }
@@ -105,6 +109,16 @@ public:
     // One key press from the window. Returns true when it was used.
     Q_INVOKABLE bool handleKey(int key, int modifiers, const QString &text);
 
+    // What the file keys act on: the selection of the active folder, or else the row under its
+    // cursor. Empty when there is neither.
+    QStringList targetPaths() const;
+    // The folder pasted into and where new folders are made: the one the keys are in.
+    QString workFolder() const;
+
+    // Puts the cursor on path as soon as its row is shown (now, or once the folder has read it);
+    // with edit, its name is then edited. Nothing when path is not in a folder shown here.
+    void aimCursor(const QString &path, bool edit = false);
+
 signals:
     void folderChanged();
     void cursorChanged();
@@ -147,14 +161,19 @@ private:
     bool treeRight();
     bool treeLeft();
     bool typeToFind(const QString &text);
+    bool fileKey(int key, Qt::KeyboardModifiers mods);
+    bool landAim();
 
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<Riley::FolderModel> m_model;
+    std::unique_ptr<FileOps> m_ops;
 
     int m_cursor = -1;
     QString m_cursorPath;     // the path the cursor is on, or is waiting for
     bool m_cursorWaiting = false;
     bool m_rootLoaded = false;
+    QString m_aimPath;        // a row the cursor goes to once it is shown
+    bool m_aimEdit = false;   // and whose name is then edited
 
     QList<Step> m_history;
     qsizetype m_historyAt = -1;
