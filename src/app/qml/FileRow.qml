@@ -3,7 +3,8 @@
 
 import QtQuick
 
-// One row of the list view.
+// One row of the list view's table: the icon, the name, and on the right how long ago it changed.
+// In a git repository, the subject of the last commit that touched it sits between the two.
 Rectangle {
     id: row
 
@@ -14,6 +15,8 @@ Rectangle {
     required property bool hidden
     required property string sizeText
     required property string modifiedText
+    required property string ageText
+    required property string commitSubject
     required property string category
     required property int depth
     required property bool open
@@ -25,10 +28,13 @@ Rectangle {
     // How far the row is pushed in by the tree; 0 with the tree off.
     readonly property int indent: browser.tree ? depth * Theme.indent : 0
     readonly property int textLeft: Theme.spacing * 1.5 + indent + (browser.tree ? Theme.indent : 0)
+    // The commit column shows in a repository, at the same place on every row.
+    readonly property bool inRepository: browser.model.inRepository
 
     Accessible.role: Accessible.ListItem
     Accessible.name: name
-    Accessible.description: isDir ? modifiedText : [sizeText, modifiedText].filter(s => s.length > 0).join(", ")
+    Accessible.description: (isDir ? [commitSubject, ageText] : [sizeText, commitSubject, ageText])
+                                .filter(s => s.length > 0).join(", ")
     Accessible.selected: current
     Accessible.onPressAction: browser.clickRow(index)
 
@@ -111,7 +117,7 @@ Rectangle {
     Text {
         anchors {
             left: icon.right; leftMargin: Theme.spacing
-            right: size.left; rightMargin: Theme.spacing
+            right: row.inRepository ? commit.left : date.left; rightMargin: Theme.spacing
             verticalCenter: parent.verticalCenter
         }
         text: row.name
@@ -123,20 +129,26 @@ Rectangle {
     }
 
     Text {
-        id: size
-        anchors { right: date.left; rightMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
-        width: Theme.sizeColumn
-        horizontalAlignment: Text.AlignRight
-        text: row.sizeText
+        id: commit
+        objectName: "commit"
+        visible: row.inRepository
+        x: Math.round(Math.max(row.width * 0.38, Theme.spacing * 1.5 + Theme.tileWidth + Theme.iconSize))
+        width: Math.max(0, date.x - Theme.spacing - x)
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        text: row.commitSubject
         color: Theme.textMuted
         font.pixelSize: Theme.fontSmall
     }
 
     Text {
         id: date
+        objectName: "age"
         anchors { right: parent.right; rightMargin: Theme.spacing * 1.5; verticalCenter: parent.verticalCenter }
         width: Theme.dateColumn
-        text: row.modifiedText
+        horizontalAlignment: Text.AlignRight
+        elide: Text.ElideLeft
+        text: row.ageText
         color: Theme.textMuted
         font.pixelSize: Theme.fontSmall
     }

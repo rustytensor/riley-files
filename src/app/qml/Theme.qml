@@ -123,6 +123,12 @@ QtObject {
     // The cursor in a column the keys are not in (columns view), and the place shown.
     readonly property color restingRow: mix(background, foreground, 0.085)
     readonly property color treeGuide: mix(background, foreground, 0.2)
+    // The list view's table and the README box under it: their outline, and the band along the
+    // top of each that says what it holds.
+    readonly property color tableBorder: mix(background, foreground, 0.16)
+    readonly property color tableHeader: mix(background, foreground, 0.04)
+    // Links in the README and the parts of the path in the header.
+    readonly property color link: accent
     // The ring drawn around whatever the keys are on (a button, a field).
     readonly property color focusRing: accent
 
@@ -202,6 +208,8 @@ QtObject {
     property int indent: 18
     property int sizeColumn: 96
     property int dateColumn: 150
+    // The README's text is at most this wide, as on a page.
+    property int readableWidth: 860
     // Grid tiles and the columns view's columns.
     property int tileWidth: 112
     property int tileHeight: 104

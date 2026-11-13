@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 project(riley-files
-    VERSION 0.5.0
+    VERSION 0.6.0
     DESCRIPTION "The file manager of the Riley desktop"
     LANGUAGES CXX)
 

@@ -29,6 +29,7 @@
 #include <QList>
 #include <QObject>
 #include <QString>
+#include <QThreadPool>
 #include <QVariantList>
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -151,6 +152,14 @@ class Browser : public QObject
     Q_PROPERTY(QString searchStatus READ searchStatus NOTIFY searchStatusChanged)
     // What the field shows while nothing is typed.
     Q_PROPERTY(QString searchHint READ searchHint NOTIFY searchModeChanged)
+
+    // The folder's README under the list (browserreadme.cpp): its file name, or empty when the
+    // folder has none, and its text made safe to show (see readme.h).
+    Q_PROPERTY(QString readmeName READ readmeName NOTIFY readmeChanged)
+    Q_PROPERTY(QString readmeHtml READ readmeHtml NOTIFY readmeChanged)
+    // The folder's path as parts to click, from the first one shown to the folder itself: each
+    // {name, path}. Inside the home folder they start at Home, elsewhere at "/".
+    Q_PROPERTY(QVariantList crumbs READ crumbs NOTIFY folderChanged)
 
 public:
     enum View { List, Grid, Columns, Graph };
@@ -308,6 +317,15 @@ public:
     // Opens files with their default application (the first one for their type).
     void openFiles(const QStringList &paths);
 
+    // The README (browserreadme.cpp).
+    QString readmeName() const { return m_readmeName; }
+    QString readmeHtml() const { return m_readmeHtml; }
+    // A link clicked in the README: an http or https address goes to the desktop's default
+    // browser (QDesktopServices, never a shell); a relative path opens that folder here or that
+    // file with its application. Every other link does nothing.
+    Q_INVOKABLE void openReadmeLink(const QString &href);
+    QVariantList crumbs() const;
+
     // A click on a row of a view, and a double-click: the cursor goes there, and the row opens
     // on a double-click, or on one click when the Preferences say so.
     Q_INVOKABLE void clickRow(int row);
@@ -431,6 +449,7 @@ signals:
     void placeRowChanged();
     void connectShownChanged();
     void graphNodeChanged();
+    void readmeChanged();
 
     // Asks for what the window, not the browser, does: another window on `folder`, and closing
     // this one.
@@ -527,6 +546,9 @@ private:
     int recentSidebarRow() const;
     int drivesSidebarRow() const { return recentSidebarRow() + 1; }
     int networkSidebarRow() const;
+    // Reads the folder's README again, off the UI thread (browserreadme.cpp).
+    void refreshReadme();
+    void setReadme(const QString &folder, const QString &name, const QString &html);
 
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<Riley::FolderModel> m_model;
@@ -598,4 +620,11 @@ private:
     int m_searchCursor = -1;
     QString m_searchCursorPath; // the result the cursor is on (path and line), kept as rows come in
     int m_searchCursorLine = 0;
+
+    QString m_readmeName;
+    QString m_readmeHtml;
+    QString m_readmeFolder;   // the folder the README shown is of
+    quint64 m_readmeAsk = 0;  // the latest reading asked for; older answers are dropped
+    // Last, so it is gone (its readers finished) before anything they could answer to.
+    std::unique_ptr<QThreadPool> m_readmePool;
 };

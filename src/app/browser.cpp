@@ -122,6 +122,9 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
         followRows();
     });
     connect(model, &FolderModel::showHiddenChanged, this, &Browser::showHiddenChanged);
+    // The README is read again with the folder, and whenever its rows are read again.
+    connect(model, &FolderModel::loaded, this, &Browser::refreshReadme);
+    connect(this, &Browser::folderChanged, this, &Browser::refreshReadme);
 
     // The first column of the columns view is the folder itself, with the browser's cursor.
     auto *first = new FolderColumn(model, this);
@@ -197,6 +200,8 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     addActions();
     addPreferences();
     m_model->setFoldersFirst(m_prefs->isOn(QStringLiteral("foldersFirst")));
+    // The list view's table shows what git says about a folder in a repository.
+    m_model->setGitEnabled(true);
     connect(m_prefs.get(), &Preferences::changed, this, &Browser::applyPreference);
 
     // The automatic pane widths follow the names shown.

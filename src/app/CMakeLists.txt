@@ -10,7 +10,8 @@
 qt_add_library(riley-ui SHARED
     actions.h actions.cpp
     browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
-    browserplaces.cpp browserversions.cpp browsergraph.cpp
+    browserplaces.cpp browserversions.cpp browsergraph.cpp browserreadme.cpp
+    readme.h readme.cpp
     graphscene.h graphscene.cpp
     chooser.h chooser.cpp
     iconprovider.h iconprovider.cpp

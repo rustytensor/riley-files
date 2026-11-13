@@ -9,6 +9,8 @@ add_library(riley-core SHARED
     entryorder.h entryorder.cpp
     folderlisting.h folderlisting.cpp
     foldermodel.h foldermodel.cpp
+    # The repository look (v0.6): gitlog.h reads what git says about a folder, off the UI thread.
+    gitlog.h gitlog.cpp
     # File operations (milestone 2): jobs run off the UI thread by a queue. filejob.h is the
     # base (progress, stop, clash questions, failures, the steps an undo needs); filejobs.h the
     # copy, move, rename and new folder jobs; trash.h the freedesktop home trash and

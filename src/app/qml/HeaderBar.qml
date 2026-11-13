@@ -66,9 +66,10 @@ Rectangle {
     // Gives the typing to the search field, when it is shown.
     function focusSearch() { search.forceActiveFocus() }
 
+    // A place that is not a folder (the trash, the recent files) is named.
     Text {
         id: title
-        visible: !bar.browser.locationEditing && !bar.browser.searchShown
+        visible: !bar.browser.locationEditing && !bar.browser.searchShown && bar.browser.place.length > 0
         anchors { left: nav.right; leftMargin: Theme.spacing; verticalCenter: parent.verticalCenter }
         text: bar.browser.folderName.length > 0 ? bar.browser.folderName : qsTr("Files")
         Accessible.role: Accessible.Heading
@@ -78,17 +79,72 @@ Rectangle {
         font.weight: Font.DemiBold
     }
 
-    Text {
+    // A folder's path, as parts to click: "Home / Projects / site". The last part is the folder
+    // shown. When the parts do not fit, the first ones go out of sight on the left.
+    Item {
+        id: crumbBox
+        objectName: "breadcrumb"
+
+        visible: !bar.browser.locationEditing && !bar.browser.searchShown && bar.browser.place.length === 0
         anchors {
-            left: title.right; leftMargin: Theme.spacing
+            left: nav.right; leftMargin: Theme.spacing
             right: tools.left; rightMargin: Theme.spacing
-            baseline: title.baseline
+            verticalCenter: parent.verticalCenter
         }
-        visible: !bar.browser.locationEditing && !bar.browser.searchShown
-        text: bar.browser.place.length > 0 ? "" : bar.browser.folder
-        color: Theme.textFaint
-        font.pixelSize: Theme.fontSmall
-        elide: Text.ElideMiddle
+        height: Theme.rowHeight
+        clip: true
+
+        Row {
+            id: crumbs
+            x: Math.min(0, crumbBox.width - width)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
+
+            Repeater {
+                model: bar.browser.crumbs
+
+                Row {
+                    id: crumb
+
+                    required property var modelData
+                    required property int index
+                    readonly property bool last: index === bar.browser.crumbs.length - 1
+
+
+                    // Between two parts; none after the root, which is a "/" itself.
+                    Text {
+                        visible: crumb.index > 0 && bar.browser.crumbs[crumb.index - 1].path !== "/"
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: " / "
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontLarge
+                    }
+
+                    Text {
+                        id: part
+                        objectName: "crumb" + crumb.index
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: crumb.modelData.name
+                        color: crumb.last ? Theme.text : (partMouse.containsMouse ? Theme.link : Theme.textMuted)
+                        font.pixelSize: Theme.fontLarge
+                        font.weight: crumb.last ? Font.DemiBold : Font.Normal
+                        font.underline: partMouse.containsMouse && !crumb.last
+
+                        Accessible.role: crumb.last ? Accessible.Heading : Accessible.Link
+                        Accessible.name: crumb.last ? text : qsTr("Go to “%1”").arg(text)
+                        Accessible.onPressAction: bar.browser.open(crumb.modelData.path)
+
+                        MouseArea {
+                            id: partMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: crumb.last ? Qt.ArrowCursor : Qt.PointingHandCursor
+                            onClicked: bar.browser.open(crumb.modelData.path)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // The folder's path, typed (Ctrl+L). Return opens it, Escape leaves the folder as it is.

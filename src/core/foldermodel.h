@@ -5,6 +5,7 @@
 
 #include "direntry.h"
 #include "entryorder.h"
+#include "gitlog.h"
 #include "rileycore_export.h"
 #include "snapshots.h"
 
@@ -50,7 +51,16 @@ class RILEYCORE_EXPORT FolderModel : public QAbstractListModel
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    // The folder's own contents in a few words: "2 folders, 2 files".
+    Q_PROPERTY(QString summary READ summary NOTIFY countChanged)
     Q_PROPERTY(bool hasOpenFolders READ hasOpenFolders NOTIFY countChanged)
+    // In a git repository (with setGitEnabled on): the branch, and the latest commit that
+    // touched the folder, in a few words.
+    Q_PROPERTY(bool inRepository READ inRepository NOTIFY gitChanged)
+    Q_PROPERTY(QString branch READ branch NOTIFY gitChanged)
+    Q_PROPERTY(QString latestCommitSubject READ latestCommitSubject NOTIFY gitChanged)
+    Q_PROPERTY(QString latestCommitAuthor READ latestCommitAuthor NOTIFY gitChanged)
+    Q_PROPERTY(QString latestCommitAgeText READ latestCommitAgeText NOTIFY gitChanged)
     Q_PROPERTY(QStringList selectedPaths READ selectedPaths NOTIFY selectionChanged)
     Q_PROPERTY(int selectedCount READ selectedCount NOTIFY selectionChanged)
 
@@ -72,6 +82,9 @@ public:
         OpenRole,         // a folder row whose contents are shown below it
         LinesRole,        // tree guide: one character per level, e.g. "│└"; empty at depth 0
         SelectedRole,
+        AgeTextRole,      // how long ago it was modified: "now", "2 days ago", ... (see ageText);
+                          // in a git repository, how long ago its last commit was made
+        CommitSubjectRole, // in a git repository: the subject of the last commit that touched it
     };
     Q_ENUM(Role)
 
@@ -92,6 +105,12 @@ public:
     static QString categoryOf(const QMimeType &mime);
     // The same for a file name (by its extension), or "folder".
     static QString categoryOfName(const QString &name, bool isDir);
+    // How long before `now` the time `when` was, for a person: "now" (under a minute, or in the
+    // future), "N minutes ago", "N hours ago", "yesterday", "N days ago", "N weeks ago" (under
+    // 30 days), then the date in the locale's short format.
+    static QString ageText(const QDateTime &when, const QDateTime &now);
+    // "2 folders, 2 files", "1 folder", "No items".
+    static QString summaryText(int folders, int files);
 
     // QAbstractItemModel
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -121,6 +140,18 @@ public:
     bool isLoading() const { return !m_pending.isEmpty(); }
     int count() const { return int(m_rows.size()); }
     bool hasOpenFolders() const;
+    QString summary() const;
+
+    // Git: off by default. On, the folder's history is read off the UI thread each time the
+    // folder is read (see GitLog: git runs again only when the repository has moved on), and
+    // the rows give their last commit.
+    bool gitEnabled() const { return m_gitEnabled; }
+    void setGitEnabled(bool on);
+    bool inRepository() const { return m_git != nullptr; }
+    QString branch() const { return m_git ? m_git->branch : QString(); }
+    QString latestCommitSubject() const { return m_git ? m_git->latest.subject : QString(); }
+    QString latestCommitAuthor() const { return m_git ? m_git->latest.author : QString(); }
+    QString latestCommitAgeText() const;
 
     // Reads the folder and every open folder again.
     Q_INVOKABLE void reload();
@@ -177,6 +208,8 @@ signals:
     void loaded();
     // A folder shown (the folder itself or an open one) has new rows from disk.
     void folderLoaded(const QString &path);
+    // The folder's git information came in or went.
+    void gitChanged();
 
 private:
     struct Node
@@ -215,6 +248,10 @@ private:
     void refreshDirtyFolders();
     // Sends the change signals for count, loading and selection that are due.
     void settle();
+    // Asks for the folder's git information again (gitlog.h), off the UI thread.
+    void requestGit();
+    void applyGit(GitLog::Info info);
+    void forgetGit();
 
     QString linesFor(const Node *node) const;
 
@@ -240,7 +277,19 @@ private:
     mutable QMutex m_threadsLock;
     QSet<Qt::HANDLE> m_listingThreads;
 
+    bool m_gitEnabled = false;
+    GitLog::Info m_git;     // null outside a repository
+    bool m_gitBusy = false; // a reading is on its way
+    bool m_gitAgain = false; // and another is wanted after it
+    // The reading still wanted, read by the worker to give up early.
+    std::shared_ptr<std::atomic<quint64>> m_gitWanted;
+
     QThreadPool m_pool;
+    QThreadPool m_gitPool;
+    // The repository's .git folder: a commit, a checkout or a pull changes it, and the folder's
+    // git information is read again.
+    QFileSystemWatcher m_gitWatcher;
+    QTimer m_gitDebounce;
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;
 

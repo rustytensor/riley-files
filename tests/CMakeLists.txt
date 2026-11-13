@@ -200,3 +200,14 @@ target_link_libraries(iconui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME iconui_tests COMMAND iconui_tests)
 set_tests_properties(iconui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The list view as a repository page, in the window: the outlined table with its summing-up band
+# and how long ago each item changed, the README rendered under it with nothing in it run or
+# fetched (a local listener stands in for the network), and the path in the header as parts to
+# click.
+find_package(Qt6 REQUIRED COMPONENTS Network)
+add_executable(repoui_tests repoui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(repoui_tests PRIVATE riley-ui riley_warnings Qt6::Test Qt6::Network)
+
+add_test(NAME repoui_tests COMMAND repoui_tests)
+set_tests_properties(repoui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

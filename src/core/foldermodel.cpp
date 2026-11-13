@@ -6,6 +6,7 @@
 #include "folderlisting.h"
 
 #include <QDate>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QLocale>
@@ -103,15 +104,75 @@ QString FolderModel::categoryOfName(const QString &name, bool isDir)
     return categoryOf(QMimeDatabase().mimeTypeForFile(name, QMimeDatabase::MatchExtension));
 }
 
+QString FolderModel::ageText(const QDateTime &when, const QDateTime &now)
+{
+    if (!when.isValid())
+        return QString();
+    const qint64 seconds = when.secsTo(now);
+    if (seconds < 60)
+        return tr("now");
+    const qint64 minutes = seconds / 60;
+    if (minutes < 60)
+        return minutes == 1 ? tr("1 minute ago") : tr("%1 minutes ago").arg(minutes);
+    const qint64 hours = minutes / 60;
+    if (hours < 24)
+        return hours == 1 ? tr("1 hour ago") : tr("%1 hours ago").arg(hours);
+    const qint64 days = hours / 24;
+    if (days == 1)
+        return tr("yesterday");
+    if (days < 7)
+        return tr("%1 days ago").arg(days);
+    if (days < 30) {
+        const qint64 weeks = days / 7;
+        return weeks == 1 ? tr("1 week ago") : tr("%1 weeks ago").arg(weeks);
+    }
+    return QLocale().toString(when.date(), QLocale::ShortFormat);
+}
+
+QString FolderModel::summaryText(int folders, int files)
+{
+    QStringList parts;
+    if (folders > 0)
+        parts.append(folders == 1 ? tr("1 folder") : tr("%1 folders").arg(folders));
+    if (files > 0)
+        parts.append(files == 1 ? tr("1 file") : tr("%1 files").arg(files));
+    if (parts.isEmpty())
+        return tr("No items");
+    return parts.join(tr(", ", "between the parts of a folder's summary"));
+}
+
+QString FolderModel::summary() const
+{
+    int folders = 0;
+    int files = 0;
+    for (const auto &child : m_root.children)
+        ++(child->entry.isDir ? folders : files);
+    return summaryText(folders, files);
+}
+
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)
     , m_wanted(std::make_shared<std::atomic<quint64>>(0))
+    , m_gitWanted(std::make_shared<std::atomic<quint64>>(0))
 {
     m_root.open = true;
     m_root.entry.isDir = true;
 
     // Two readers: enough for the folder and a tree folder opened next to it.
     m_pool.setMaxThreadCount(2);
+    // One git reading at a time; a newer one waits for the older to give up.
+    m_gitPool.setMaxThreadCount(1);
+    connect(this, &FolderModel::loaded, this, [this] {
+        if (m_gitEnabled)
+            requestGit();
+    });
+    m_gitDebounce.setSingleShot(true);
+    m_gitDebounce.setInterval(DebounceMs * 3);
+    connect(&m_gitDebounce, &QTimer::timeout, this, [this] {
+        if (m_gitEnabled && m_root.loaded)
+            requestGit();
+    });
+    connect(&m_gitWatcher, &QFileSystemWatcher::directoryChanged, this, [this] { m_gitDebounce.start(); });
 
     m_debounce.setSingleShot(true);
     m_debounce.setInterval(DebounceMs);
@@ -124,7 +185,9 @@ FolderModel::~FolderModel()
 {
     // Readers still running give up at their next check, and none can post to a dead model.
     m_wanted->store(~quint64(0));
+    m_gitWanted->store(~quint64(0));
     m_pool.waitForDone();
+    m_gitPool.waitForDone();
 }
 
 int FolderModel::rowCount(const QModelIndex &parent) const
@@ -186,6 +249,16 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
         return linesFor(node);
     case SelectedRole:
         return m_selected.contains(e.path);
+    case AgeTextRole: {
+        if (m_git) {
+            const auto commit = m_git->byPath.constFind(e.path);
+            if (commit != m_git->byPath.cend() && commit->isValid())
+                return ageText(commit->when, QDateTime::currentDateTime());
+        }
+        return ageText(e.modified, QDateTime::currentDateTime());
+    }
+    case CommitSubjectRole:
+        return m_git ? m_git->byPath.value(e.path).subject : QString();
     default:
         return {};
     }
@@ -210,6 +283,8 @@ QHash<int, QByteArray> FolderModel::roleNames() const
         {OpenRole, "open"},
         {LinesRole, "lines"},
         {SelectedRole, "selected"},
+        {AgeTextRole, "ageText"},
+        {CommitSubjectRole, "commitSubject"},
     };
 }
 
@@ -245,6 +320,7 @@ void FolderModel::setPath(const QString &path)
     endResetModel();
 
     setError({});
+    forgetGit();
     emit pathChanged();
 
     if (!clean.isEmpty()) {
@@ -551,6 +627,95 @@ QString FolderModel::linesFor(const Node *node) const
         ancestor = ancestor->parent;
     }
     return lines;
+}
+
+// ---- git -----------------------------------------------------------------------------------
+
+void FolderModel::setGitEnabled(bool on)
+{
+    if (on == m_gitEnabled)
+        return;
+    m_gitEnabled = on;
+    forgetGit();
+    if (!on && !m_gitWatcher.directories().isEmpty())
+        m_gitWatcher.removePaths(m_gitWatcher.directories());
+    if (on && m_root.loaded)
+        requestGit();
+}
+
+QString FolderModel::latestCommitAgeText() const
+{
+    return m_git ? ageText(m_git->latest.when, QDateTime::currentDateTime()) : QString();
+}
+
+void FolderModel::forgetGit()
+{
+    // A reading on its way gives up, and its answer is dropped.
+    m_gitWanted->fetch_add(1);
+    m_gitBusy = false;
+    m_gitAgain = false;
+    if (!m_git)
+        return;
+    m_git.reset();
+    emit gitChanged();
+    if (!m_rows.isEmpty())
+        emit dataChanged(index(0), index(int(m_rows.size()) - 1), {AgeTextRole, CommitSubjectRole});
+}
+
+void FolderModel::requestGit()
+{
+    if (m_root.entry.path.isEmpty())
+        return;
+    if (m_gitBusy) {
+        m_gitAgain = true;
+        return;
+    }
+    m_gitBusy = true;
+    const quint64 ask = m_gitWanted->fetch_add(1) + 1;
+    const std::shared_ptr<std::atomic<quint64>> wanted = m_gitWanted;
+    const QString folder = m_root.entry.path;
+    m_gitPool.start([this, wanted, ask, folder] {
+        const auto stale = [&wanted, ask] { return wanted->load() != ask; };
+        GitLog::Info info = GitLog::read(folder, stale);
+        if (stale())
+            return;
+        // The model waits for this thread in its destructor, so it is alive here.
+        QMetaObject::invokeMethod(
+            this,
+            [this, ask, folder, info = std::move(info)] {
+                if (ask != m_gitWanted->load() || folder != m_root.entry.path)
+                    return;
+                m_gitBusy = false;
+                applyGit(info);
+                if (m_gitAgain) {
+                    m_gitAgain = false;
+                    requestGit();
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void FolderModel::applyGit(GitLog::Info info)
+{
+    if (info && !info->inRepository)
+        info.reset();
+    QString gitFolder;
+    if (info && QFileInfo(info->root + QStringLiteral("/.git")).isDir())
+        gitFolder = info->root + QStringLiteral("/.git");
+    const QStringList watched = m_gitWatcher.directories();
+    if (watched != QStringList{gitFolder}) {
+        if (!watched.isEmpty())
+            m_gitWatcher.removePaths(watched);
+        if (!gitFolder.isEmpty())
+            m_gitWatcher.addPath(gitFolder);
+    }
+    if (info == m_git)
+        return;
+    m_git = std::move(info);
+    emit gitChanged();
+    if (!m_rows.isEmpty())
+        emit dataChanged(index(0), index(int(m_rows.size()) - 1), {AgeTextRole, CommitSubjectRole});
 }
 
 // ---- reading folders -----------------------------------------------------------------------

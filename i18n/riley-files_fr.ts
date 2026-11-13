@@ -625,6 +625,10 @@
         <source>Restore this version?</source>
         <translation>Restaurer cette version&#xa0;?</translation>
     </message>
+    <message>
+        <source>“%1” is not there.</source>
+        <translation>«&#xa0;%1&#xa0;» n’existe pas.</translation>
+    </message>
 </context>
 <context>
     <name>ChooserDialog</name>
@@ -983,18 +987,6 @@
 <context>
     <name>FileList</name>
     <message>
-        <source>Name</source>
-        <translation>Nom</translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation>Taille</translation>
-    </message>
-    <message>
-        <source>Modified</source>
-        <translation>Modifié</translation>
-    </message>
-    <message>
         <source>Files in “%1”</source>
         <translation>Fichiers de «&#xa0;%1&#xa0;»</translation>
     </message>
@@ -1181,6 +1173,13 @@
     </message>
 </context>
 <context>
+    <name>GraphView</name>
+    <message>
+        <source>The graph needs 3D graphics.</source>
+        <translation>Le graphe a besoin de graphismes 3D.</translation>
+    </message>
+</context>
+<context>
     <name>HeaderBar</name>
     <message>
         <source>Back</source>
@@ -1197,6 +1196,10 @@
     <message>
         <source>Files</source>
         <translation>Fichiers</translation>
+    </message>
+    <message>
+        <source>Go to “%1”</source>
+        <translation>Aller à «&#xa0;%1&#xa0;»</translation>
     </message>
     <message>
         <source>Location</source>
@@ -1463,10 +1466,79 @@
     </message>
 </context>
 <context>
-    <name>GraphView</name>
+    <name>Riley::FolderModel</name>
     <message>
-        <source>The graph needs 3D graphics.</source>
-        <translation>Le graphe a besoin de graphismes 3D.</translation>
+        <source>now</source>
+        <translation>à l’instant</translation>
+    </message>
+    <message>
+        <source>1 minute ago</source>
+        <translation>il y a 1 minute</translation>
+    </message>
+    <message>
+        <source>%1 minutes ago</source>
+        <translation>il y a %1 minutes</translation>
+    </message>
+    <message>
+        <source>1 hour ago</source>
+        <translation>il y a 1 heure</translation>
+    </message>
+    <message>
+        <source>%1 hours ago</source>
+        <translation>il y a %1 heures</translation>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>hier</translation>
+    </message>
+    <message>
+        <source>%1 days ago</source>
+        <translation>il y a %1 jours</translation>
+    </message>
+    <message>
+        <source>1 week ago</source>
+        <translation>il y a 1 semaine</translation>
+    </message>
+    <message>
+        <source>%1 weeks ago</source>
+        <translation>il y a %1 semaines</translation>
+    </message>
+    <message>
+        <source>1 folder</source>
+        <translation>1 dossier</translation>
+    </message>
+    <message>
+        <source>%1 folders</source>
+        <translation>%1 dossiers</translation>
+    </message>
+    <message>
+        <source>1 file</source>
+        <translation>1 fichier</translation>
+    </message>
+    <message>
+        <source>%1 files</source>
+        <translation>%1 fichiers</translation>
+    </message>
+    <message>
+        <source>No items</source>
+        <translation>Aucun élément</translation>
+    </message>
+    <message>
+        <source>, </source>
+        <comment>between the parts of a folder&apos;s summary</comment>
+        <translation>, </translation>
+    </message>
+    <message>
+        <source>Today %1</source>
+        <translation>Aujourd’hui %1</translation>
+    </message>
+    <message>
+        <source>Yesterday %1</source>
+        <translation>Hier %1</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Dossier</translation>
     </message>
 </context>
 <context>
@@ -1482,21 +1554,6 @@
     <message>
         <source>%1 · %2 files</source>
         <translation>%1 · %2 fichiers</translation>
-    </message>
-</context>
-<context>
-    <name>Riley::FolderModel</name>
-    <message>
-        <source>Today %1</source>
-        <translation>Aujourd’hui %1</translation>
-    </message>
-    <message>
-        <source>Yesterday %1</source>
-        <translation>Hier %1</translation>
-    </message>
-    <message>
-        <source>Folder</source>
-        <translation>Dossier</translation>
     </message>
 </context>
 <context>
