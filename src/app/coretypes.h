@@ -11,6 +11,7 @@
 #include "places.h"
 #include "recentfiles.h"
 #include "trashmodel.h"
+#include "versionmodel.h"
 
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -77,4 +78,12 @@ struct RecentFilesForeign
     QML_FOREIGN(Riley::RecentFiles)
     QML_NAMED_ELEMENT(RecentFiles)
     QML_UNCREATABLE("The recent files are made by the program.")
+};
+
+struct VersionModelForeign
+{
+    Q_GADGET
+    QML_FOREIGN(Riley::VersionModel)
+    QML_NAMED_ELEMENT(VersionModel)
+    QML_UNCREATABLE("The previous versions are made by the program.")
 };

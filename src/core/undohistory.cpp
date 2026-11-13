@@ -193,6 +193,7 @@ QString UndoHistory::kindText(FileJob::Kind kind)
     case FileJob::Kind::Trash: return QStringLiteral("Move to Trash");
     case FileJob::Kind::Restore: return QStringLiteral("Restore from Trash");
     case FileJob::Kind::Delete: return QStringLiteral("Delete");
+    case FileJob::Kind::RestoreVersion: return QStringLiteral("Restore Version");
     case FileJob::Kind::Undo: break;
     }
     return QString();

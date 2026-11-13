@@ -68,8 +68,9 @@ class RILEYCORE_EXPORT FileJob : public QObject
     Q_PROPERTY(int failureCount READ failureCount NOTIFY finished)
 
 public:
-    // Undo: puts back what another job did (an UndoHistory undo or redo).
-    enum class Kind { Copy, Move, Rename, NewFolder, Trash, Restore, Delete, Undo };
+    // Undo: puts back what another job did (an UndoHistory undo or redo). RestoreVersion: an
+    // earlier version brought back from a snapshot (VersionRestoreJob).
+    enum class Kind { Copy, Move, Rename, NewFolder, Trash, Restore, Delete, Undo, RestoreVersion };
     Q_ENUM(Kind)
 
     enum class State {

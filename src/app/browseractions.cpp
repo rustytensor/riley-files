@@ -33,12 +33,16 @@ void Browser::addActions()
     Actions &a = *m_actions;
     const auto hasTarget = [this] { return !targetPaths().isEmpty(); };
     const auto hasRow = [this] { return !activeModel()->pathAt(activeCursor()).isEmpty(); };
+    // Nothing inside a snapshot can be changed: those commands are greyed out there, and their
+    // keys say why (see refusedInSnapshot).
+    const auto changeable = [this] { return !inSnapshot(); };
+    const auto onVersion = [this] { return m_place == QLatin1String("versions") && m_placeRow >= 0; };
 
     // File
     a.add({u"new-window"_s, u"New Window"_s, key(Qt::Key_N, ctrl), {},
            [this] { emit newWindowAsked(folder()); }, {}, {}});
     a.add({u"new-folder"_s, u"New Folder"_s, key(Qt::Key_N, ctrlShift), {},
-           [this] { m_ops->newFolder(workFolder()); }, {}, {}});
+           [this] { m_ops->newFolder(workFolder()); }, changeable, {}});
     a.add({u"open"_s, u"Open"_s, key(Qt::Key_Return), {key(Qt::Key_Enter), key(Qt::Key_Down, alt)},
            [this] { openUnderCursor(); }, hasRow, {}});
     a.add({u"preview"_s, u"Preview"_s, key(Qt::Key_Space), {},
@@ -50,20 +54,45 @@ void Browser::addActions()
            },
            hasRow, {}});
     a.add({u"rename"_s, u"Rename"_s, key(Qt::Key_F2), {},
-           [this] { m_ops->startRename(activeModel()->pathAt(activeCursor())); }, hasRow, {}});
+           [this] { m_ops->startRename(activeModel()->pathAt(activeCursor())); },
+           [=] { return hasRow() && changeable(); }, {}});
     a.add({u"trash"_s, u"Move to Trash"_s, key(Qt::Key_Delete), {},
-           [this] { trashTargets(); }, hasTarget, {}});
+           [this] { trashTargets(); }, [=] { return hasTarget() && changeable(); }, {}});
     // Deleting for good is asked first, always; in the trash view it is the thing chosen there.
     a.add({u"delete-for-good"_s, u"Delete for Good"_s, key(Qt::Key_Delete, Qt::ShiftModifier), {},
            [this] { deleteTargetsForGood(); },
            [this] {
-               return m_place == QLatin1String("trash") ? m_placeRow >= 0
-                                                        : m_place.isEmpty() && !targetPaths().isEmpty();
+               return m_place == QLatin1String("trash")
+                          ? m_placeRow >= 0
+                          : m_place.isEmpty() && !targetPaths().isEmpty() && !inSnapshot();
            },
            {}});
     a.add({u"restore"_s, u"Restore from Trash"_s, {}, {}, [this] { restoreRow(m_placeRow); },
            [this] { return m_place == QLatin1String("trash") && m_placeRow >= 0; }, {}});
     a.add({u"empty-trash"_s, u"Empty Trash"_s, {}, {}, [this] { emptyTrash(); }, {}, {}});
+    // Previous versions, from the snapshots above what the keys are on; offered only when there
+    // are snapshots there.
+    a.add({u"previous-versions"_s, u"Previous Versions"_s, key(Qt::Key_V, alt), {}, [this] { showVersions(); },
+           [this] {
+               return m_place.isEmpty() && !m_searchShown && m_versions->isAvailable()
+                      && m_versions->path() == focusPath();
+           },
+           {}});
+    a.add({u"restore-version"_s, u"Restore This Version"_s, {}, {},
+           [this] { restoreVersion(m_placeRow, false); }, onVersion, {}});
+    a.add({u"restore-version-copy"_s, u"Restore as Copy"_s, {}, {},
+           [this] { restoreVersion(m_placeRow, true); }, onVersion, {}});
+    a.add({u"open-version"_s, u"Open"_s, {}, {},
+           [this] {
+               const QString copy = m_versions->copyPathAt(m_placeRow);
+               if (copy.isEmpty())
+                   return;
+               if (QFileInfo(copy).isDir())
+                   open(copy);
+               else
+                   openFiles({copy});
+           },
+           onVersion, {}});
     a.add({u"connect"_s, u"Connect to Server"_s, {}, {}, [this] { openConnect(); }, {}, {}});
     a.add({u"change-icon"_s, u"Change Icon"_s, {}, {},
            [this] { changeIcon(activeModel()->pathAt(activeCursor())); }, hasRow, {}});
@@ -85,7 +114,7 @@ void Browser::addActions()
     a.add({u"redo"_s, u"Redo"_s, key(Qt::Key_Z, ctrlShift), {key(Qt::Key_Y, ctrl)},
            [this] { m_ops->redo(); }, [this] { return m_ops->canRedo(); }, {}});
     a.add({u"cut"_s, u"Cut"_s, key(Qt::Key_X, ctrl), {}, [this] { m_ops->copy(targetPaths(), true); },
-           hasTarget, {}});
+           [=] { return hasTarget() && changeable(); }, {}});
     a.add({u"copy"_s, u"Copy"_s, key(Qt::Key_C, ctrl), {}, [this] { m_ops->copy(targetPaths(), false); },
            hasTarget, {}});
     a.add({u"paste"_s, u"Paste"_s, key(Qt::Key_V, ctrl), {},
@@ -93,7 +122,7 @@ void Browser::addActions()
                if (!m_ops->paste(workFolder()))
                    m_ops->say(QStringLiteral("There are no files on the clipboard to paste."));
            },
-           {}, {}});
+           changeable, {}});
     a.add({u"select-all"_s, u"Select All"_s, key(Qt::Key_A, ctrl), {}, [this] { activeModel()->selectAll(); },
            [this] { return activeModel()->count() > 0; }, {}});
     a.add({u"find"_s, u"Find"_s, key(Qt::Key_F, ctrl), {key(Qt::Key_Slash), key(Qt::Key_Slash, Qt::ShiftModifier)},
@@ -175,7 +204,8 @@ void Browser::addActions()
         {u"File"_s,
          {item(u"new-window"), item(u"new-folder"), sep, item(u"open"), openWith, item(u"preview"), sep,
           item(u"rename"), item(u"trash"), item(u"delete-for-good"), item(u"restore"), item(u"empty-trash"), sep,
-          item(u"change-icon"), item(u"reset-icon"), sep, item(u"connect"), sep, item(u"close-window"),
+          item(u"previous-versions"), sep, item(u"change-icon"), item(u"reset-icon"), sep, item(u"connect"), sep,
+          item(u"close-window"),
           item(u"quit")}},
         {u"Edit"_s,
          {item(u"undo"), item(u"redo"), sep, item(u"cut"), item(u"copy"), item(u"paste"), sep,

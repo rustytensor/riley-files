@@ -55,6 +55,15 @@ Rectangle {
         }
     }
 
+    // The earlier versions of a file or folder, from the snapshots above it.
+    Loader {
+        anchors.fill: parent
+        active: area.browser.place === "versions" && !area.browser.searchShown
+        sourceComponent: Component {
+            VersionsView { browser: area.browser }
+        }
+    }
+
     // While searching, the results take the folder's place.
     SearchResults {
         anchors.fill: parent

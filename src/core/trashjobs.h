@@ -13,7 +13,7 @@
 namespace Riley {
 
 // Sends files and folders to the home trash (see Trash). What cannot go there is a failure
-// and stays where it is; nothing is deleted instead. Each item is one Trashed step.
+// and stays where it is; nothing is deleted instead. Nothing in a snapshot is trashed. Each item is one Trashed step.
 class RILEYCORE_EXPORT TrashJob : public FileJob
 {
     Q_OBJECT
@@ -62,7 +62,7 @@ private:
 
 // Deletes for good: only when the person asks for it (emptying the trash, or a delete that
 // skips the trash). Items in Trash/files lose their info file too. It cannot be undone, so it
-// records no steps.
+// records no steps. Nothing in a snapshot is deleted.
 class RILEYCORE_EXPORT DeleteJob : public FileJob
 {
     Q_OBJECT

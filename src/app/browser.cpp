@@ -73,6 +73,7 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     , m_network(std::make_unique<Riley::NetworkModel>())
     , m_trash(std::make_unique<Riley::TrashModel>())
     , m_recent(std::make_unique<Riley::RecentFiles>())
+    , m_versions(std::make_unique<Riley::VersionModel>())
     , m_details(std::make_unique<FileDetails>())
     , m_preview(std::make_unique<Preview>())
     , m_actions(std::make_unique<Actions>())
@@ -152,6 +153,13 @@ Browser::Browser(const QString &settingsFile, QObject *parent)
     for (QAbstractItemModel *list : {static_cast<QAbstractItemModel *>(m_trash.get()),
                                      static_cast<QAbstractItemModel *>(m_recent.get())})
         connect(list, &QAbstractItemModel::modelReset, this, &Browser::followPlaceRows);
+    connect(m_versions.get(), &QAbstractItemModel::modelReset, this, &Browser::followPlaceRows);
+    // A file operation may have changed the file whose versions are known (a restore makes the
+    // live file another one), so they are read again.
+    connect(&m_ops->queue(), &Riley::JobQueue::jobFinished, this, [this] {
+        if (!m_versions->path().isEmpty())
+            m_versions->reload();
+    });
 
     // The details and the preview follow the cursor, through every change to the rows.
     connect(this, &Browser::cursorChanged, this, &Browser::followFocus);
@@ -208,6 +216,8 @@ QString Browser::folderName() const
         return QStringLiteral("Trash");
     if (m_place == QLatin1String("recent"))
         return QStringLiteral("Recent");
+    if (m_place == QLatin1String("versions"))
+        return QStringLiteral("Previous Versions");
     const QString path = folder();
     if (path == QLatin1String("/"))
         return path;
@@ -510,6 +520,8 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     // the cursor and to typing.
     const QString id = m_actions->idForKey(key, mods);
     const bool typingKey = mods == Qt::NoModifier && !text.isEmpty() && text.at(0).isPrint();
+    if (!id.isEmpty() && !(typingKey && finding) && refusedInSnapshot(id))
+        return true;
     if (!id.isEmpty() && !(typingKey && finding) && m_actions->trigger(id))
         return true;
 
@@ -1144,6 +1156,9 @@ QString Browser::focusPath() const
 void Browser::followFocus()
 {
     const QString path = focusPath();
+    // The versions follow the keys, except while the versions of one thing are listed.
+    if (m_place != QLatin1String("versions"))
+        m_versions->setPath(path);
     if (path == m_followed)
         return;
     m_followed = path;

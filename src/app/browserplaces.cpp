@@ -16,6 +16,7 @@ namespace {
 
 const QString trashPlace = QStringLiteral("trash");
 const QString recentPlace = QStringLiteral("recent");
+const QString versionsPlace = QStringLiteral("versions");
 
 QString items(qsizetype n)
 {
@@ -41,9 +42,15 @@ void Browser::setPlace(const QString &place)
 {
     if (place == m_place)
         return;
+    const bool leftVersions = m_place == versionsPlace;
     m_place = place;
     m_placeRow = -1;
     m_placeRowPath.clear();
+    if (leftVersions) {
+        // The versions follow the keys again.
+        m_versionsOf.clear();
+        m_versions->setPath(focusPath());
+    }
     emit placeChanged();
     emit placeRowChanged();
     emit folderChanged(); // the title is the place's
@@ -86,6 +93,8 @@ int Browser::placeCount() const
         return m_trash->count();
     if (m_place == recentPlace)
         return m_recent->count();
+    if (m_place == versionsPlace)
+        return m_versions->count();
     return 0;
 }
 
@@ -95,6 +104,8 @@ QString Browser::placePathAt(int row) const
         return m_trash->pathAt(row);
     if (m_place == recentPlace)
         return m_recent->pathAt(row);
+    if (m_place == versionsPlace)
+        return m_versions->copyPathAt(row);
     return {};
 }
 
@@ -116,8 +127,16 @@ void Browser::followPlaceRows()
     if (m_place.isEmpty())
         return;
     int row = -1;
-    if (!m_placeRowPath.isEmpty())
-        row = m_place == trashPlace ? m_trash->rowOf(m_placeRowPath) : m_recent->rowOf(m_placeRowPath);
+    if (!m_placeRowPath.isEmpty()) {
+        if (m_place == trashPlace)
+            row = m_trash->rowOf(m_placeRowPath);
+        else if (m_place == recentPlace)
+            row = m_recent->rowOf(m_placeRowPath);
+        else
+            for (int i = 0; i < m_versions->count() && row < 0; ++i)
+                if (m_versions->copyPathAt(i) == m_placeRowPath)
+                    row = i;
+    }
     if (row < 0)
         row = std::max(m_placeRow, 0);
     // Set again even when the row number is the same: the thing on it may be another.
@@ -140,6 +159,10 @@ void Browser::openPlaceRow(int row)
     setPlaceRow(row);
     if (m_place == trashPlace) {
         restoreRow(row);
+        return;
+    }
+    if (m_place == versionsPlace) {
+        openVersionRow(row);
         return;
     }
     const QString path = placePathAt(row);
@@ -217,6 +240,11 @@ bool Browser::placeKey(int key, Qt::KeyboardModifiers mods)
             deleteRowForGood(m_placeRow);
         return true;
     }
+    if (m_place == versionsPlace
+        && ((key == Qt::Key_Menu && mods == Qt::NoModifier) || (key == Qt::Key_F10 && mods == Qt::ShiftModifier))) {
+        versionMenuAt(m_placeRow, -1, -1);
+        return true;
+    }
     if (mods != Qt::NoModifier)
         return false;
     const int n = placeCount();
@@ -267,6 +295,7 @@ bool Browser::placeAllows(const QString &actionId) const
         QStringLiteral("location"),     QStringLiteral("reload"),        QStringLiteral("restore"),
         QStringLiteral("delete-for-good"), QStringLiteral("empty-trash"), QStringLiteral("connect"),
         QStringLiteral("recent"),       QStringLiteral("undo"),          QStringLiteral("redo"),
+        QStringLiteral("restore-version"), QStringLiteral("restore-version-copy"),
     };
     return allowed.contains(actionId);
 }

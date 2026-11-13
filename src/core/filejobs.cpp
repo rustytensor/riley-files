@@ -4,6 +4,7 @@
 #include "filejobs.h"
 
 #include "filenames.h"
+#include "snapshots.h"
 #include "trash.h"
 
 #include <QDir>
@@ -181,6 +182,10 @@ void TransferJob::run()
     }
     setTotals(total.files, total.bytes);
 
+    if (Snapshots::isInSnapshot(m_destination)) {
+        addFailure(m_destination, Snapshots::readOnlyMessage());
+        return;
+    }
     struct stat dst;
     if (::stat(QFile::encodeName(m_destination).constData(), &dst) != 0 || !S_ISDIR(dst.st_mode)) {
         addFailure(m_destination, QStringLiteral("The folder “%1” is not there").arg(QFileInfo(m_destination).fileName()));
@@ -189,11 +194,11 @@ void TransferJob::run()
     for (const QString &source : m_sources) {
         if (stopRequested())
             return;
-        transferOne(source);
+        transferOne(source, &source == &m_sources.first() ? m_topName : QString());
     }
 }
 
-void TransferJob::transferOne(const QString &source)
+void TransferJob::transferOne(const QString &source, const QString &asName)
 {
     const QString srcPath = QDir::cleanPath(QDir(source).absolutePath());
     const QByteArray src = QFile::encodeName(srcPath);
@@ -212,6 +217,11 @@ void TransferJob::transferOne(const QString &source)
         addDone(mine.files, mine.bytes);
     };
 
+    if (m_move && Snapshots::isInSnapshot(srcPath)) {
+        addFailure(srcPath, Snapshots::readOnlyMessage());
+        skipAll();
+        return;
+    }
     if (isFolder && isSameOrInside(m_destination, srcPath)) {
         addFailure(srcPath, QStringLiteral("Cannot %1 the folder “%2” into itself").arg(verb, name));
         skipAll();
@@ -223,17 +233,18 @@ void TransferJob::transferOne(const QString &source)
         return;
     }
 
-    const QString target = place(srcPath, st, m_destination);
+    const QString target = place(srcPath, st, m_destination, asName);
     if (!target.isEmpty()) {
         QMutexLocker lock(&m_targetsMutex);
         m_targets.append(target);
     }
 }
 
-QString TransferJob::place(const QString &srcPath, const struct stat &st, const QString &folder)
+QString TransferJob::place(const QString &srcPath, const struct stat &st, const QString &folder,
+                           const QString &asName)
 {
     const QByteArray src = QFile::encodeName(srcPath);
-    const QString name = QFileInfo(srcPath).fileName();
+    const QString name = asName.isEmpty() ? QFileInfo(srcPath).fileName() : asName;
     const QString verb = m_move ? QStringLiteral("move") : QStringLiteral("copy");
     const bool isFolder = S_ISDIR(st.st_mode);
     Tally mine;
@@ -569,6 +580,10 @@ RenameJob::RenameJob(const QString &path, const QString &newName, QObject *paren
 void RenameJob::run()
 {
     const QString oldName = QFileInfo(m_path).fileName();
+    if (Snapshots::isInSnapshot(m_path)) {
+        addFailure(m_path, Snapshots::readOnlyMessage());
+        return;
+    }
     if (!isValidFileName(m_newName)) {
         addFailure(m_path, QStringLiteral("“%1” cannot be used as a name").arg(m_newName));
         return;
@@ -620,6 +635,10 @@ QString NewFolderJob::createdPath() const
 
 void NewFolderJob::run()
 {
+    if (Snapshots::isInSnapshot(m_parent)) {
+        addFailure(m_parent, Snapshots::readOnlyMessage());
+        return;
+    }
     if (!isValidFileName(m_name)) {
         addFailure(m_parent, QStringLiteral("“%1” cannot be used as a name").arg(m_name));
         return;

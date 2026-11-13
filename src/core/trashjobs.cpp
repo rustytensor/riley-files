@@ -4,6 +4,7 @@
 #include "trashjobs.h"
 
 #include "filenames.h"
+#include "snapshots.h"
 #include "trash.h"
 
 #include <QDir>
@@ -41,6 +42,11 @@ void TrashJob::run()
             return;
         const QString path = absolute(given);
         QString why;
+        if (Snapshots::isInSnapshot(path)) {
+            addFailure(path, Snapshots::readOnlyMessage());
+            addDone(1, 0);
+            continue;
+        }
         const std::optional<TrashEntry> entry = Trash::put(path, &why);
         if (entry) {
             addStep(JobStep::Trashed, path, entry->trashedPath);
@@ -132,6 +138,11 @@ void DeleteJob::run()
             return;
         const QString path = absolute(given);
         QString why;
+        if (Snapshots::isInSnapshot(path)) {
+            addFailure(path, Snapshots::readOnlyMessage());
+            addDone(1, 0);
+            continue;
+        }
         const bool inTrash = Trash::isInTrash(path);
         if (!(inTrash ? Trash::erase(path, &why) : Trash::removeForGood(path, &why)))
             addFailure(path, why);

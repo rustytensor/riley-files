@@ -10,7 +10,7 @@
 qt_add_library(riley-ui SHARED
     actions.h actions.cpp
     browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
-    browserplaces.cpp
+    browserplaces.cpp browserversions.cpp
     chooser.h chooser.cpp
     iconprovider.h iconprovider.cpp
     panewidths.h panewidths.cpp
@@ -59,6 +59,7 @@ set(rf_qml_files
     qml/TrashView.qml
     qml/RecentView.qml
     qml/PlaceRow.qml
+    qml/VersionsView.qml
     qml/ConnectDialog.qml
 )
 

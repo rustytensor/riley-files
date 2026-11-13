@@ -354,11 +354,16 @@ void Actions::hoverBarMenu(int index, qreal x, qreal y)
 
 void Actions::openContextMenu(bool onFile, QPointF at)
 {
+    openMenu(onFile ? m_fileMenu : m_emptyMenu, at);
+}
+
+void Actions::openMenu(const QList<Entry> &entries, QPointF at)
+{
     m_levels.clear();
     m_mouseSeen = false;
     m_barMenu = -1;
     m_menuPoint = at;
-    openLevel(onFile ? m_fileMenu : m_emptyMenu, -1);
+    openLevel(entries, -1);
     emit menuChanged();
 }
 

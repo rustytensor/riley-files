@@ -5,7 +5,8 @@ import QtQuick
 
 // One row of a place that is not a folder (the trash, the recent files): an icon, the name, the
 // folder it is from and a date. A click puts the keys on it, a double-click opens it (a recent
-// file) or puts it back (a thing in the trash).
+// file) or puts it back (a thing in the trash); a right click asks for the place's own menu,
+// where it has one (the previous versions).
 Rectangle {
     id: row
 
@@ -13,8 +14,12 @@ Rectangle {
     property int rowIndex: -1
     property string title
     property string where
+    // What comes before `where`: "in " for a folder; nothing for a version's description.
+    property string wherePrefix: "in "
     property string when
     property bool isFolder: false
+
+    signal menuAsked(real x, real y)
 
     readonly property bool current: browser.placeRow === rowIndex
 
@@ -52,7 +57,7 @@ Rectangle {
             right: date.left; rightMargin: Theme.spacing
             verticalCenter: parent.verticalCenter
         }
-        text: row.where.length > 0 ? "in " + row.where : ""
+        text: row.where.length > 0 ? row.wherePrefix + row.where : ""
         textFormat: Text.PlainText
         elide: Text.ElideMiddle
         color: Theme.textFaint
@@ -72,7 +77,18 @@ Rectangle {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
-        onClicked: row.browser.clickPlaceRow(row.rowIndex)
-        onDoubleClicked: row.browser.openPlaceRow(row.rowIndex)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: event => {
+            if (event.button === Qt.RightButton) {
+                const at = row.mapToItem(null, event.x, event.y)
+                row.menuAsked(at.x, at.y)
+            } else {
+                row.browser.clickPlaceRow(row.rowIndex)
+            }
+        }
+        onDoubleClicked: event => {
+            if (event.button === Qt.LeftButton)
+                row.browser.openPlaceRow(row.rowIndex)
+        }
     }
 }

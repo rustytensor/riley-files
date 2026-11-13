@@ -115,6 +115,8 @@ public:
     // `x` and `y` are the mouse in the window: see hover().
     Q_INVOKABLE void hoverBarMenu(int index, qreal x, qreal y);
     void openContextMenu(bool onFile, QPointF at);
+    // A context menu of these entries (a place's own, like the previous versions').
+    void openMenu(const QList<Entry> &entries, QPointF at);
     Q_INVOKABLE void closeMenu();
     // The mouse on a row of an open level: it becomes the current row, and a submenu opens.
     // Only a mouse that moves counts: a menu that opens under a resting mouse (from the keys,

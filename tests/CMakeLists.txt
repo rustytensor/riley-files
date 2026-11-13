@@ -129,3 +129,21 @@ target_link_libraries(placesui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
 
 add_test(NAME placesui_tests COMMAND placesui_tests)
 set_tests_properties(placesui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Previous versions on real files in the snapper layout: finding snapshots, the versions of a file
+# and a folder, restore (the live one to the trash first, one undo), restore as copy, and every
+# change inside a snapshot refused.
+add_executable(versions_tests versions_tests.cpp)
+target_link_libraries(versions_tests PRIVATE riley-core riley_warnings Qt6::Test)
+
+add_test(NAME versions_tests COMMAND versions_tests)
+set_tests_properties(versions_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Previous versions in the window: Alt+V, File > Previous Versions and the details pane's section,
+# Return restoring after asking, Restore as Copy from a version's context menu, a folder's
+# version looked through read-only, and every change inside a snapshot refused.
+add_executable(versionsui_tests versionsui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(versionsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME versionsui_tests COMMAND versionsui_tests)
+set_tests_properties(versionsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

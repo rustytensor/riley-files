@@ -34,6 +34,9 @@ namespace Riley {
 // into the existing folder one by one, each clash asked again, and every item added or replaced
 // is its own step, so one undo takes the merge back. A merging move removes the emptied source
 // folder (a FolderRemoved step).
+//
+// Nothing in a snapshot is written (Snapshots::isInSnapshot): a destination there is refused,
+// and so is moving something out of one; copying out of a snapshot is fine.
 class RILEYCORE_EXPORT TransferJob : public FileJob
 {
     Q_OBJECT
@@ -51,6 +54,9 @@ protected:
     void run() override;
 
     bool m_pretendOtherDrive = false;
+    // When set, the first source gets this name in the destination instead of its own (set
+    // by a subclass in run(), before TransferJob::run()).
+    QString m_topName;
 
 private:
     // Copies src (whose lstat is st) to dst, which does not exist. Records failures; returns true
@@ -59,10 +65,11 @@ private:
     bool copyEntry(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top);
     bool copyFile(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top);
     bool copyFolder(const QByteArray &src, const QByteArray &dst, const struct stat &st, bool top);
-    void transferOne(const QString &source);
+    void transferOne(const QString &source, const QString &asName);
     // Puts src (whose lstat is st) into folder, asking about a clash. Returns the path that now
     // holds it (the merged folder after Merge), or nothing when it was skipped or failed.
-    QString place(const QString &srcPath, const struct stat &st, const QString &folder);
+    QString place(const QString &srcPath, const struct stat &st, const QString &folder,
+                  const QString &asName = QString());
     // Merge: puts each item of the folder srcPath into the existing folder target, one by one.
     void mergeFolder(const QString &srcPath, const QString &target);
 
@@ -96,7 +103,7 @@ public:
 };
 
 // Gives one file or folder a new name in the same folder. A name already taken is refused with
-// a failure; nothing is overwritten.
+// a failure; nothing is overwritten. Nothing in a snapshot is renamed.
 class RILEYCORE_EXPORT RenameJob : public FileJob
 {
     Q_OBJECT
@@ -117,7 +124,8 @@ private:
     const QString m_newPath;
 };
 
-// Makes a folder named name in parent, or "name (2)", "name (3)" ... when name is taken.
+// Makes a folder named name in parent, or "name (2)", "name (3)" ... when name is taken. Never
+// in a snapshot.
 class RILEYCORE_EXPORT NewFolderJob : public FileJob
 {
     Q_OBJECT

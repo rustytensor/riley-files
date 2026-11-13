@@ -115,6 +115,85 @@ Rectangle {
             Field { label: "Dimensions"; value: pane.details.imageSize; valueName: "detailsImageSize" }
             Field { label: "Modified"; value: pane.details.modifiedText; valueName: "detailsModified" }
             Field { label: "Permissions"; value: pane.details.permissions; valueName: "detailsPermissions" }
+
+            // The earlier versions, when there are snapshots above it: the newest few, and the
+            // whole list (Alt+V) one click away.
+            Column {
+                id: versionsSection
+                objectName: "detailsVersions"
+
+                readonly property VersionModel versions: pane.browser.versions
+
+                width: parent.width
+                spacing: 4
+                visible: versions.available && versions.path === pane.details.path
+                         && pane.details.name.length > 0
+
+                Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                Text {
+                    text: "Previous Versions"
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSmall
+                    font.weight: Font.DemiBold
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 1
+                }
+
+                Text {
+                    objectName: "detailsVersionsCount"
+                    width: parent.width
+                    text: versionsSection.versions.loading && versionsSection.versions.count === 0 ? "Looking…"
+                          : versionsSection.versions.count === 0 ? "No earlier versions"
+                          : versionsSection.versions.count === 1 ? "1 earlier version"
+                          : versionsSection.versions.count + " earlier versions"
+                    color: Theme.text
+                    font.pixelSize: Theme.fontNormal
+                }
+
+                Repeater {
+                    objectName: "detailsVersionRows"
+                    model: versionsSection.versions
+
+                    delegate: Text {
+                        required property int index
+                        required property string dateText
+                        required property string description
+
+                        width: versionsSection.width
+                        visible: index < 5
+                        text: description.length > 0 ? dateText + "  ·  " + description : dateText
+                        textFormat: Text.PlainText
+                        elide: Text.ElideRight
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSmall
+                    }
+                }
+
+                Rectangle {
+                    objectName: "detailsVersionsButton"
+                    width: showText.implicitWidth + Theme.spacing * 3
+                    height: Theme.buttonHeight - 6
+                    radius: Theme.radius
+                    visible: versionsSection.versions.count > 0
+                    color: showMouse.containsMouse ? Theme.buttonHover : Theme.button
+
+                    Text {
+                        id: showText
+                        anchors.centerIn: parent
+                        text: "Show Versions  (Alt+V)"
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSmall
+                    }
+
+                    MouseArea {
+                        id: showMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: pane.browser.showVersions()
+                    }
+                }
+            }
         }
     }
 }

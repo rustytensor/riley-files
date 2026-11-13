@@ -6,6 +6,7 @@
 #include "direntry.h"
 #include "entryorder.h"
 #include "rileycore_export.h"
+#include "snapshots.h"
 
 #include <QAbstractListModel>
 #include <QFileSystemWatcher>
@@ -42,6 +43,7 @@ class RILEYCORE_EXPORT FolderModel : public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(QString path READ path WRITE setPath NOTIFY pathChanged)
+    Q_PROPERTY(bool readOnly READ isReadOnly NOTIFY pathChanged)
     Q_PROPERTY(Sort sortKey READ sortKey WRITE setSortKey NOTIFY sortKeyChanged)
     Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
@@ -93,6 +95,8 @@ public:
     // Shows another folder: the rows go at once and the new ones arrive when read. Open
     // folders and the selection are forgotten. The same path again does nothing (see reload).
     void setPath(const QString &path);
+    // True when the folder is in a snapshot: it is shown, but nothing in it may be changed.
+    bool isReadOnly() const { return Snapshots::isInSnapshot(path()); }
 
     Sort sortKey() const { return Sort(int(m_sortKey)); }
     void setSortKey(Sort key);

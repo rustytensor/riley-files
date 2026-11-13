@@ -6,6 +6,7 @@
 #include "jobqueue.h"
 #include "undohistory.h"
 
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QPointer>
@@ -79,6 +80,9 @@ public:
     // Deletes for good, after the person was asked; things in a trash lose their info file too.
     void deleteForGood(const QStringList &paths);
     void newFolder(const QString &folder);
+    // Puts an earlier version (a copy in a snapshot) back in the live file's place, the live one
+    // going to the trash first; or, asCopy, copies it beside the live file under a dated name.
+    void restoreVersion(const QString &copyPath, const QString &livePath, const QDateTime &date, bool asCopy);
     void undo();
     void redo();
 

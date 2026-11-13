@@ -21,6 +21,7 @@
 #include "preview.h"
 #include "recentfiles.h"
 #include "trashmodel.h"
+#include "versionmodel.h"
 
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -88,6 +89,11 @@ class Browser : public QObject
     Q_PROPERTY(int placeRow READ placeRow WRITE setPlaceRow NOTIFY placeRowChanged)
     Q_PROPERTY(Riley::TrashModel *trash READ trash CONSTANT)
     Q_PROPERTY(Riley::RecentFiles *recent READ recent CONSTANT)
+    // The previous versions of the file or folder the keys are on, from the snapshots above it.
+    // Its path follows the keys; while they are listed (the place "versions", File > Previous
+    // Versions, Alt+V) it stays on the one they are of, versionsOf.
+    Q_PROPERTY(Riley::VersionModel *versions READ versions CONSTANT)
+    Q_PROPERTY(QString versionsOf READ versionsOf NOTIFY placeChanged)
     // The Connect to Server field, in front of the window.
     Q_PROPERTY(bool connectShown READ connectShown NOTIFY connectShownChanged)
 
@@ -182,6 +188,17 @@ public:
     Q_INVOKABLE void restoreRow(int row);
     Q_INVOKABLE void deleteRowForGood(int row);
     Q_INVOKABLE void emptyTrash();
+    // Previous versions (browserversions.cpp). The list of them for what the keys are on, in
+    // the folder's place: Return restores the one chosen after asking (a folder's is opened, to
+    // look through it read-only), Escape closes the list.
+    Riley::VersionModel *versions() const { return m_versions.get(); }
+    QString versionsOf() const { return m_versionsOf; }
+    Q_INVOKABLE void showVersions();
+    // Asks "Restore this version?" and on yes puts that row's copy in the live one's place (the
+    // live one goes to the trash first); asCopy copies it beside the live one, without asking.
+    Q_INVOKABLE void restoreVersion(int row, bool asCopy);
+    // The context menu of a row of the versions: Restore, Restore as Copy, Open.
+    Q_INVOKABLE void versionMenuAt(int row, qreal x, qreal y);
     // Every trash folder there is: the home trash and each drive's own.
     QStringList trashFolders() const;
     // The home trash's files/, the folder the Trash place stands for.
@@ -463,6 +480,11 @@ private:
     // Deletes the targets for good (Shift+Delete), after asking.
     void deleteTargetsForGood();
     void askDeleteForGood(const QStringList &paths, const QString &name);
+    // True (after saying why) when the action would change something inside a snapshot.
+    bool refusedInSnapshot(const QString &actionId);
+    bool inSnapshot() const;
+    void openVersionRow(int row);
+    QList<Actions::Entry> versionMenu() const;
     // Where the sidebar's sections start in its cursor.
     int recentSidebarRow() const;
     int drivesSidebarRow() const { return recentSidebarRow() + 1; }
@@ -502,6 +524,8 @@ private:
     QString m_place;
     int m_placeRow = -1;
     QString m_placeRowPath; // the path the place's keys are on, kept as its rows change
+    std::unique_ptr<Riley::VersionModel> m_versions;
+    QString m_versionsOf;
     bool m_connectShown = false;
     bool m_sidebarFocus = false;
     int m_sidebarCursor = 0;

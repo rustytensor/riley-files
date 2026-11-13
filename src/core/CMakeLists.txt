@@ -42,6 +42,12 @@ add_library(riley-core SHARED
     trashmodel.h trashmodel.cpp
     recentfiles.h recentfiles.cpp
     networkplaces.h networkplaces.cpp
+    # Previous versions (milestone 7): snapshots.h finds Btrfs snapshots in the snapper layout
+    # and the versions of a file in them; versionmodel.h lists them off the UI thread;
+    # versionjobs.h restores one (the live one to the trash first) or restores it as a copy.
+    snapshots.h snapshots.cpp
+    versionmodel.h versionmodel.cpp
+    versionjobs.h versionjobs.cpp
 )
 
 include(GenerateExportHeader)

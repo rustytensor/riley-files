@@ -6,6 +6,7 @@
 #include "filejobs.h"
 #include "filenames.h"
 #include "trashjobs.h"
+#include "versionjobs.h"
 
 #include <QClipboard>
 #include <QDateTime>
@@ -238,6 +239,20 @@ void FileOps::restore(const QStringList &trashedPaths)
     run(job);
 }
 
+void FileOps::restoreVersion(const QString &copyPath, const QString &livePath, const QDateTime &date, bool asCopy)
+{
+    if (copyPath.isEmpty() || livePath.isEmpty())
+        return;
+    using Mode = Riley::VersionRestoreJob::Mode;
+    auto *job = new Riley::VersionRestoreJob(copyPath, livePath, date, asCopy ? Mode::AsCopy : Mode::Restore);
+    connect(job, &FileJob::finished, this, [this, job] {
+        const QString made = job->restoredPath();
+        if (!made.isEmpty() && job->failures().isEmpty())
+            emit land(made, false);
+    });
+    run(job);
+}
+
 void FileOps::deleteForGood(const QStringList &paths)
 {
     if (paths.isEmpty())
@@ -424,6 +439,11 @@ QString FileOps::progressTitle() const
         return {};
     const qint64 files = job->filesTotal();
     QString what = files > 0 ? items(files, "item", "items") : QStringLiteral("items");
+    if (job->kind() == FileJob::Kind::RestoreVersion) {
+        const auto *transfer = static_cast<const Riley::TransferJob *>(job);
+        return QStringLiteral("Restoring an earlier version of %1")
+            .arg(quoted(nameOf(transfer->sources().value(0))));
+    }
     if (const auto *transfer = qobject_cast<const Riley::TransferJob *>(job)) {
         const QString into = quoted(folderTitle(transfer->destination()));
         if (transfer->sources().size() == 1)
@@ -447,6 +467,7 @@ QString FileOps::progressTitle() const
         return QStringLiteral("Making a folder");
     case FileJob::Kind::Copy:
     case FileJob::Kind::Move:
+    case FileJob::Kind::RestoreVersion:
         break;
     }
     return {};
