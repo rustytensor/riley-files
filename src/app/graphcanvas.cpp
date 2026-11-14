@@ -75,6 +75,34 @@ void GraphCanvas::setSelected(int node)
     emit selectedChanged();
 }
 
+void GraphCanvas::setTooltipNode(int node)
+{
+    if (node == m_tooltipNode)
+        return;
+    m_tooltipNode = node;
+    emit tooltipChanged();
+    prepare();
+    update();
+}
+
+void GraphCanvas::setTooltipSize(const QSizeF &size)
+{
+    if (size == m_tooltipSize)
+        return;
+    m_tooltipSize = size;
+    emit tooltipChanged();
+    prepare();
+    update();
+}
+
+QRectF GraphCanvas::tooltipRect() const
+{
+    const Riley::GraphLook::Box box = m_frame.tooltip();
+    if (box.isEmpty())
+        return {};
+    return QRectF(QPointF(box.left, box.top), QPointF(box.right, box.bottom));
+}
+
 void GraphCanvas::graphBuilt()
 {
     const bool wasGrowing = m_growth.running();
@@ -158,6 +186,10 @@ void GraphCanvas::prepare()
     view.zoom = m_motion.zoom();
     view.timeMs = m_time;
     view.selected = m_selected;
+    view.tooltipNode = m_tooltipNode;
+    view.tooltipWidth = m_tooltipSize.width();
+    view.tooltipHeight = m_tooltipSize.height();
+    view.tooltipClearsLabels = m_hover >= 0 && m_hover == m_tooltipNode;
     m_frame.prepare(view, &m_flash, &m_pulses, &m_sky, m_growth.running() ? &m_growth : nullptr,
                     [this](const QString &text) { return measure(text); });
     for (const Riley::GraphLook::Label &label : m_frame.labels())

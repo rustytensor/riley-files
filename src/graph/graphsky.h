@@ -73,8 +73,9 @@ public:
     double tile() const { return m_tile; }
     const QList<Star> &stars(int layer) const { return m_layers[layer]; }
 
-    // A twinkle group's brightness at time t: 0.7 + 0.3 * sin(t * 0.0011 * (1 + group * 0.37)).
-    static double twinkle(double tMs, int group);
+    // A twinkle group's brightness at time t in a layer, as the site's Universe.astro has it:
+    // 0.7 + 0.3 * sin(t * 0.0011 * (1 + group * 0.37) + group * 1.9 + layer).
+    static double twinkle(double tMs, int group, int layer);
     // A layer's alpha before twinkling: 0.55 + 0.4 * depth.
     static double layerAlpha(int layer);
     // How far a layer is shifted by the graph's turn: (-yaw * w * 0.12 * depth, pitch * h * 0.15 * depth).

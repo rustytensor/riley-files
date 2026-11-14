@@ -16,6 +16,8 @@
 #include <QList>
 #include <QPointF>
 #include <QPointer>
+#include <QRectF>
+#include <QSizeF>
 #include <QQuickItem>
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -37,6 +39,12 @@ class GraphCanvas : public QQuickItem
     Q_PROPERTY(Riley::GraphBuilder *builder READ builder WRITE setBuilder NOTIFY builderChanged)
     // The node the keys are on, ringed; -1 for none.
     Q_PROPERTY(int selected READ selected WRITE setSelected NOTIFY selectedChanged)
+    // The node the tooltip is about (-1 for none) and the tooltip's size; tooltipRect is where it
+    // goes in this item (empty for none), worked out with each frame. While the mouse is on its
+    // node, the labels keep clear of it.
+    Q_PROPERTY(int tooltipNode READ tooltipNode WRITE setTooltipNode NOTIFY tooltipChanged)
+    Q_PROPERTY(QSizeF tooltipSize READ tooltipSize WRITE setTooltipSize NOTIFY tooltipChanged)
+    Q_PROPERTY(QRectF tooltipRect READ tooltipRect NOTIFY framed)
     // "Watch it grow": whether it runs, the month it is at ("2020-03"), the nodes it has shown.
     Q_PROPERTY(bool growing READ growing NOTIFY growthChanged)
     Q_PROPERTY(QString growthCaption READ growthCaption NOTIFY growthChanged)
@@ -58,6 +66,11 @@ public:
     void setBuilder(Riley::GraphBuilder *builder);
     int selected() const { return m_selected; }
     void setSelected(int node);
+    int tooltipNode() const { return m_tooltipNode; }
+    void setTooltipNode(int node);
+    QSizeF tooltipSize() const { return m_tooltipSize; }
+    void setTooltipSize(const QSizeF &size);
+    QRectF tooltipRect() const;
     bool growing() const { return m_growth.running(); }
     QString growthCaption() const { return m_growth.caption(); }
     int shownCount() const;
@@ -84,6 +97,7 @@ public:
 signals:
     void builderChanged();
     void selectedChanged();
+    void tooltipChanged();
     void growthChanged();
     void framed();
     // The mouse came over a node (-1: over none), clicked one, or double-clicked one.
@@ -119,6 +133,8 @@ private:
     double m_growthHeld = 0;
     double m_time = 0;
     int m_selected = -1;
+    int m_tooltipNode = -1;
+    QSizeF m_tooltipSize;
     int m_hover = -1;
     int m_revision = 0;
     bool m_hovering = false;

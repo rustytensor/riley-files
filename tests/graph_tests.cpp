@@ -4,10 +4,12 @@
 // The graph view's library on real files: the tree walked into nodes and edges, folders only for
 // a large tree, and a layout that is the same every time, keeps nodes apart and is made off the
 // UI thread. Then the look of servorra.com's graph as numbers (v0.8): projection, colours, the
-// site's layout, node sizes, motion, pulses, the sky, labels and "Watch it grow".
+// site's layout, node sizes, motion, pulses, the sky, labels and "Watch it grow". Then v0.9: the
+// palette and the twinkle exactly as the site's code has them, and labels kept clear of the tooltip.
 
 #include "forcelayout.h"
 #include "graphbuilder.h"
+#include "graphframe.h"
 #include "graphgrowth.h"
 #include "graphlook.h"
 #include "graphmotion.h"
@@ -47,7 +49,7 @@ private slots:
     void graphLayoutIsStable();
     void graphWalkSkipsLinkLoops();
     void graphProjectsLikeTheSite();
-    void graphPaletteRamp();
+    void graphPaletteExactlyLikeTheSite();
     void graphLayoutMatchesTheSite();
     void graphNodesDrawLikeTheSite();
     void graphMovesLikeTheSite();
@@ -55,6 +57,8 @@ private slots:
     void graphSkyLikeTheSite();
     void graphLabelsLikeTheSite();
     void graphGrowsOverTime();
+    void graphTwinkleExactlyLikeTheSite();
+    void graphLabelNotUnderTooltip();
 };
 
 namespace {
@@ -336,16 +340,16 @@ void GraphTests::graphProjectsLikeTheSite()
     QVERIFY2(near(at.x, 500, 1e-9) && near(at.p, 2.6 / 1.6, 1e-9), qPrintable(describe(at.x) + u' ' + describe(at.p)));
 }
 
-void GraphTests::graphPaletteRamp()
+void GraphTests::graphPaletteExactlyLikeTheSite()
 {
     using namespace GraphLook;
+    // The site's readColors: colour(i) is the ramp at t = i / 25, teal..violet over t < 0.6, then
+    // violet..amber, each channel rounded.
     QCOMPARE(GroupCount, 26);
-    QCOMPARE(groupColour(1).name(), u"#7dd3c0"_s);
+    QCOMPARE(groupColour(0).name(), u"#7dd3c0"_s);
+    QCOMPARE(groupColour(1).name(), u"#81cfc4"_s);
     QCOMPARE(groupColour(15).name(), u"#bb9af7"_s);
     QCOMPARE(groupColour(25).name(), u"#e0af68"_s);
-    // Halfway along each straight line, rounded: teal..violet at group 8, violet..amber at 20.
-    QCOMPARE(groupColour(8).name(), u"#9cb7dc"_s);
-    QCOMPARE(groupColour(20).name(), u"#cea5b0"_s);
     QCOMPARE(Background.name(), u"#1a1b26"_s);
     QCOMPARE(EdgeColour.name(), u"#7dd3c0"_s);
     QCOMPARE(EdgeAlpha, 0.15);
@@ -640,10 +644,11 @@ void GraphTests::graphSkyLikeTheSite()
     again.build(1000, 1000);
     QCOMPARE(again.stars(2).first().x, sky.stars(2).first().x);
 
-    // Twinkle: 0.7 + 0.3 sin(t * 0.0011 * (1 + group * 0.37)).
-    QCOMPARE(GraphSky::twinkle(0, 3), 0.7);
-    QVERIFY(near(GraphSky::twinkle(1000, 1), 0.7 + 0.3 * std::sin(1.1 * 1.37), 1e-12));
-    QVERIFY(near(GraphSky::twinkle(5000, 0), 0.7 + 0.3 * std::sin(5.5), 1e-12));
+    // Twinkle, as the site's Universe.astro has it (v0.9; see graphTwinkleExactlyLikeTheSite):
+    // 0.7 + 0.3 sin(t * 0.0011 * (1 + group * 0.37) + group * 1.9 + layer).
+    QCOMPARE(GraphSky::twinkle(0, 0, 0), 0.7);
+    QVERIFY(near(GraphSky::twinkle(1000, 1, 0), 0.7 + 0.3 * std::sin(1.1 * 1.37 + 1.9), 1e-12));
+    QVERIFY(near(GraphSky::twinkle(5000, 0, 2), 0.7 + 0.3 * std::sin(5.5 + 2), 1e-12));
 
     // Parallax: each layer moves with the turn by its depth (0.12, 0.4, 0.9).
     QPointF by = sky.shift(0, 1, 0);
@@ -852,6 +857,77 @@ void GraphTests::graphGrowsOverTime()
     QCOMPARE(times.at(loose.indexOf(plain + u"/x/older.txt"_s)), may);
     QCOMPARE(times.at(loose.indexOf(plain + u"/x"_s)), may);
     QCOMPARE(times.at(0), may);
+}
+
+void GraphTests::graphTwinkleExactlyLikeTheSite()
+{
+    // 0.7 + 0.3 sin(1000 * 0.0011 * 1.74 + 3.8 + 1) = 0.7 + 0.3 sin(6.714).
+    const double t = GraphSky::twinkle(1000, 2, 1);
+    QVERIFY2(near(t, 0.82528, 0.00001), qPrintable(describe(t)));
+}
+
+void GraphTests::graphLabelNotUnderTooltip()
+{
+    using namespace GraphLook;
+    // A tree of 1,000 nodes: the folder, 100 folders and 899 files in them (9 in each, 8 in the
+    // last), so that every folder is big enough to be labelled at zoom 3 and 36 labels show.
+    QTemporaryDir scratch;
+    QVERIFY(scratch.isValid());
+    const QString root = scratch.filePath(u"thousand"_s);
+    for (int folder = 0; folder < 100; ++folder) {
+        const QString dir = root + u"/d%1"_s.arg(folder, 2, 10, QLatin1Char('0'));
+        QVERIFY(QDir().mkpath(dir));
+        for (int file = 0; file < (folder == 99 ? 8 : 9); ++file)
+            QVERIFY(makeFile(dir + u"/f%1.txt"_s.arg(file)));
+    }
+    GraphBuilder builder;
+    QVERIFY(build(builder, root, 30000) >= 0);
+    QCOMPARE(builder.count(), 1000);
+
+    const GraphTree &tree = builder.tree();
+    QStringList names;
+    for (int i = 0; i < builder.count(); ++i)
+        names.append(tree.node(i).name);
+    GraphFrame frame;
+    frame.setGraph(builder.sitePositions(), builder.sizes(), builder.groups(), names, tree.edges());
+
+    // A wide window, 1920 x 800, as the graph opens: turned 0.6 and tipped -0.25, zoomed to 3.
+    GraphFrame::View view;
+    view.width = 1920;
+    view.height = 800;
+    view.rotY = 0.6;
+    view.rotX = -0.25;
+    view.zoom = 3;
+    frame.prepare(view, nullptr, nullptr, nullptr, nullptr);
+    const QList<Label> all = frame.labels();
+    QCOMPARE(all.size(), 36);
+    QVERIFY(frame.tooltip().isEmpty());
+
+    // Hovering each labelled node in turn: its tooltip is shown (the size the view gives it: the
+    // text, 8 px either side, 4 px above and below), its own label is not, and no label's box
+    // overlaps the tooltip's.
+    int wouldHaveOverlapped = 0;
+    for (const Label &hovered : all) {
+        const QString text = builder.label(hovered.node);
+        view.tooltipNode = hovered.node;
+        view.tooltipWidth = monospaceWidth(text) + 16;
+        view.tooltipHeight = 13 + 8;
+        frame.prepare(view, nullptr, nullptr, nullptr, nullptr);
+        const Box tip = frame.tooltip();
+        QVERIFY2(!tip.isEmpty(), qPrintable(text));
+        QCOMPARE(tip.left, std::max(0.0, std::min(view.width - view.tooltipWidth, hovered.x - LabelGap + TooltipGap)));
+        for (const Label &l : all) {
+            if (l.node != hovered.node && labelBox(l, monospaceWidth(l.text)).overlaps(tip))
+                ++wouldHaveOverlapped;
+        }
+        for (const Label &l : frame.labels()) {
+            QVERIFY2(l.node != hovered.node, qPrintable(u"%1 still labelled under its tooltip"_s.arg(text)));
+            QVERIFY2(!labelBox(l, monospaceWidth(l.text)).overlaps(tip),
+                     qPrintable(u"label %1 under the tooltip of %2"_s.arg(l.text, text)));
+        }
+    }
+    // The check bites: placed without keeping clear, labels would have been under tooltips.
+    QVERIFY2(wouldHaveOverlapped > 0, "no tooltip ever covered a label");
 }
 
 QTEST_GUILESS_MAIN(GraphTests)

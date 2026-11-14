@@ -88,9 +88,9 @@ void GraphSky::build(double width, double height)
     }
 }
 
-double GraphSky::twinkle(double tMs, int group)
+double GraphSky::twinkle(double tMs, int group, int layer)
 {
-    return 0.7 + 0.3 * std::sin(tMs * 0.0011 * (1 + group * 0.37));
+    return 0.7 + 0.3 * std::sin(tMs * 0.0011 * (1 + group * 0.37) + group * 1.9 + layer);
 }
 
 double GraphSky::layerAlpha(int layer)

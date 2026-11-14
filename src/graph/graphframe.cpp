@@ -202,7 +202,7 @@ void GraphFrame::prepare(const View &view, const GraphFlash *flash, const GraphP
             const double base = GraphSky::layerAlpha(layer);
             double twinkles[GraphSky::TwinkleGroups];
             for (int g = 0; g < GraphSky::TwinkleGroups; ++g)
-                twinkles[g] = GraphSky::twinkle(view.timeMs, g);
+                twinkles[g] = GraphSky::twinkle(view.timeMs, g, layer);
             for (int i = 0; i < stars.size(); ++i) {
                 const QPointF at = sky->position(layer, i, view.rotY, view.rotX);
                 if (at.x() > view.width + 2 || at.y() > view.height + 2)
@@ -291,7 +291,14 @@ void GraphFrame::prepare(const View &view, const GraphFlash *flash, const GraphP
         }
     }
 
-    // The labels, when zoomed in far enough.
+    // The tooltip of the node under the mouse (or the keys), beside it.
+    m_tooltip = {};
+    if (view.tooltipNode >= 0 && view.tooltipNode < n && view.tooltipWidth > 0 && view.tooltipHeight > 0) {
+        const Projected &p = m_projected.at(view.tooltipNode);
+        m_tooltip = tooltipBox(p.x, p.y, view.tooltipWidth, view.tooltipHeight, view.width, view.height);
+    }
+
+    // The labels, when zoomed in far enough; while hovered, clear of the tooltip and not for its node.
     if (view.zoom >= LabelZoom) {
         QList<LabelCandidate> candidates;
         candidates.reserve(n);
@@ -300,7 +307,12 @@ void GraphFrame::prepare(const View &view, const GraphFlash *flash, const GraphP
             candidates.append({p.x, p.y, p.p, i < m_sizes.size() ? m_sizes.at(i) : 1,
                                i < m_names.size() ? m_names.at(i) : QString(), m_shown[size_t(i)] != 0});
         }
-        m_labels = placeLabels(candidates, view.zoom, view.width, view.height, measure);
+        LabelsAvoid avoid;
+        if (view.tooltipClearsLabels) {
+            avoid.node = view.tooltipNode;
+            avoid.box = m_tooltip;
+        }
+        m_labels = placeLabels(candidates, view.zoom, view.width, view.height, measure, avoid);
     }
 }
 

@@ -82,10 +82,10 @@ GraphRgb mix(const GraphRgb &from, const GraphRgb &to, double share)
 GraphRgb groupColour(int group)
 {
     const int last = GroupCount - 1;
-    group = std::clamp(group, 1, last);
-    if (group <= VioletGroup)
-        return mix(Teal, Violet, double(group - 1) / (VioletGroup - 1));
-    return mix(Violet, Amber, double(group - VioletGroup) / (last - VioletGroup));
+    const double t = double(std::clamp(group, 0, last)) / last;
+    if (t < VioletAt)
+        return mix(Teal, Violet, t / VioletAt);
+    return mix(Violet, Amber, (t - VioletAt) / (1 - VioletAt));
 }
 
 QList<int> groupsOf(const GraphTree &tree)
@@ -148,8 +148,20 @@ double monospaceWidth(const QString &text)
     return text.size() * LabelFontPx * 0.6;
 }
 
+Box tooltipBox(double x, double y, double w, double h, double viewWidth, double viewHeight)
+{
+    const double left = std::max(0.0, std::min(viewWidth - w, x + TooltipGap));
+    const double top = std::max(0.0, std::min(viewHeight - h, y - h / 2));
+    return {left, top, left + w, top + h};
+}
+
+Box labelBox(const Label &label, double textWidth)
+{
+    return {label.x, label.y - LabelHalfHeight, label.x + textWidth, label.y + LabelHalfHeight};
+}
+
 QList<Label> placeLabels(const QList<LabelCandidate> &nodes, double zoom, double width, double height,
-                         const std::function<double(const QString &)> &measure)
+                         const std::function<double(const QString &)> &measure, const LabelsAvoid &avoid)
 {
     QList<Label> labels;
     if (zoom < LabelZoom)
@@ -158,17 +170,16 @@ QList<Label> placeLabels(const QList<LabelCandidate> &nodes, double zoom, double
     QList<int> candidates;
     for (qsizetype i = 0; i < nodes.size(); ++i) {
         const LabelCandidate &n = nodes.at(i);
+        if (int(i) == avoid.node)
+            continue;
         if (n.shown && n.size >= least && n.x > 0 && n.x < width && n.y > 0 && n.y < height && n.p > 0.9)
             candidates.append(int(i));
     }
     std::stable_sort(candidates.begin(), candidates.end(),
                      [&nodes](int a, int b) { return nodes.at(a).size > nodes.at(b).size; });
 
-    struct Box
-    {
-        double left, top, right, bottom;
-    };
     QList<Box> taken;
+    const bool clearOfTooltip = !avoid.box.isEmpty();
     const double alpha = labelAlpha(zoom);
     for (int i : candidates) {
         if (labels.size() >= LabelMost)
@@ -178,9 +189,10 @@ QList<Label> placeLabels(const QList<LabelCandidate> &nodes, double zoom, double
         const double y = n.y;
         const double w = measure ? measure(n.name) : monospaceWidth(n.name);
         const Box box{x, y - LabelHalfHeight, x + w, y + LabelHalfHeight};
-        const bool overlaps = std::any_of(taken.cbegin(), taken.cend(), [&box](const Box &o) {
-            return box.left < o.right && box.right > o.left && box.top < o.bottom && box.bottom > o.top;
-        });
+        if (clearOfTooltip && box.overlaps(avoid.box))
+            continue;
+        const bool overlaps =
+            std::any_of(taken.cbegin(), taken.cend(), [&box](const Box &o) { return box.overlaps(o); });
         if (overlaps)
             continue;
         taken.append(box);

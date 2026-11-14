@@ -29,6 +29,8 @@ Item {
         anchors.fill: parent
         builder: scene.browser.graph
         selected: scene.browser.graphNode
+        tooltipNode: label.text.length > 0 ? scene.browser.graphLabelNode : -1
+        tooltipSize: Qt.size(label.width, label.height)
         onHovered: node => scene.browser.hoverGraphNode(node)
         onClicked: node => scene.browser.clickGraphNode(node)
         onActivated: node => scene.browser.openGraphNode(node)
@@ -49,13 +51,11 @@ Item {
         id: label
         objectName: "graphLabel"
         readonly property string text: scene.browser.graphLabel
-        readonly property point at: {
-            canvas.revision
-            return scene.screenPointOf(scene.browser.graphLabelNode)
-        }
+        // Placed by the canvas, which keeps the labels clear of it.
+        readonly property rect box: canvas.tooltipRect
         visible: text.length > 0
-        x: Math.max(0, Math.min(scene.width - width, at.x + Theme.spaceLarge))
-        y: Math.max(0, Math.min(scene.height - height, at.y - height / 2))
+        x: box.x
+        y: box.y
         width: labelText.implicitWidth + 2 * Theme.spaceMedium
         height: labelText.implicitHeight + Theme.spaceMedium
         radius: Theme.spaceSmall

@@ -55,7 +55,8 @@ inline constexpr double EdgeWidth = 0.6;
 
 // Group 0 is the folder walked; groups 1..25 colour the top-level folders, in turn.
 inline constexpr int GroupCount = 26;
-inline constexpr int VioletGroup = 15;
+// The ramp's middle stop: violet at t = 0.6, group 15.
+inline constexpr double VioletAt = 0.6;
 
 // Where the layout lands on the view: its middle and its scale in pixels.
 struct Frame
@@ -92,8 +93,9 @@ double RILEYGRAPH_EXPORT bandAlpha(DepthBand band);
 // r = (max(0.55, s/420) + size/110) * p * (1 + flash*1.6).
 double RILEYGRAPH_EXPORT nodeRadius(double s, int size, double p, double flash);
 
-// The colour of a group: a ramp in straight RGB lines from teal (group 1) to violet (group 15)
-// to amber (group 25); group 0, the folder walked, is teal. Out of range is held to the ends.
+// The colour of a group, as servorra.com reads its colours: the ramp at t = group / 25, teal to
+// violet over t < 0.6, then violet to amber, in straight RGB lines, each channel rounded. Group 0,
+// the folder walked, is teal, group 15 violet, group 25 amber. Out of range is held to the ends.
 GraphRgb RILEYGRAPH_EXPORT groupColour(int group);
 // Each node's group: 0 for the folder walked, else 1 + (index of its top-level folder among the
 // folder walked's children) % 25.
@@ -142,6 +144,36 @@ struct Label
     double alpha = 0;
 };
 
+// A box on the view, in pixels.
+struct Box
+{
+    double left = 0;
+    double top = 0;
+    double right = 0;
+    double bottom = 0;
+
+    bool isEmpty() const { return right <= left || bottom <= top; }
+    // Whether two boxes share any area (touching edges do not count).
+    bool overlaps(const Box &other) const
+    {
+        return left < other.right && right > other.left && top < other.bottom && bottom > other.top;
+    }
+};
+
+// The hover tooltip ("name · N files") sits this far right of its node, its middle level with it,
+// held inside the view.
+inline constexpr double TooltipGap = 18;
+// The tooltip's box for a node at (x, y), the tooltip being w x h, on a viewWidth x viewHeight view.
+Box RILEYGRAPH_EXPORT tooltipBox(double x, double y, double w, double h, double viewWidth, double viewHeight);
+
+// What the labels keep clear of: the node the tooltip is about (its own label is not drawn, the
+// tooltip says it) and the tooltip's box (a label under it is not drawn either).
+struct LabelsAvoid
+{
+    int node = -1;
+    Box box;
+};
+
 // The smallest size labelled at a zoom: max(40, 200 - (zoom - 1.6) * 90).
 double RILEYGRAPH_EXPORT labelMinSize(double zoom);
 // min(1, (zoom - 1.6) * 1.5) * 0.85, 0 below zoom 1.6.
@@ -150,10 +182,14 @@ double RILEYGRAPH_EXPORT labelAlpha(double zoom);
 double RILEYGRAPH_EXPORT monospaceWidth(const QString &text);
 // The labels of a w x h view: none below zoom 1.6; else the nodes on the view, in front (p > 0.9),
 // shown and at least labelMinSize, biggest first, at most 36, a box never overlapping one placed
-// before. `width` measures a text (monospaceWidth when not given).
+// before, and none for avoid.node or under avoid.box. `measure` gives a text's width
+// (monospaceWidth when not given).
 QList<Label> RILEYGRAPH_EXPORT placeLabels(const QList<LabelCandidate> &nodes, double zoom, double width,
                                            double height,
-                                           const std::function<double(const QString &)> &measure = {});
+                                           const std::function<double(const QString &)> &measure = {},
+                                           const LabelsAvoid &avoid = {});
+// The box a label's text takes: from its left edge, LabelHalfHeight above and below its middle.
+Box RILEYGRAPH_EXPORT labelBox(const Label &label, double textWidth);
 
 } // namespace GraphLook
 

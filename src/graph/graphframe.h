@@ -66,6 +66,15 @@ public:
         double zoom = 1;
         double timeMs = 0;  // for the twinkling
         int selected = -1;  // ringed; -1 for none
+        // The node the tooltip is about (-1 for none) and the tooltip's size in pixels: the
+        // tooltip is placed beside the node, and labels keep clear of it.
+        int tooltipNode = -1;
+        double tooltipWidth = 0;
+        double tooltipHeight = 0;
+        // Whether the labels keep clear of the tooltip: its node's label is not drawn, nor any
+        // under it. True while the mouse is on the node; the tooltip of the node the keys are on
+        // leaves the labels as they are.
+        bool tooltipClearsLabels = true;
     };
 
     // Makes the frame. Any of flash, pulses, sky and growth may be null (no flashes, no pulses,
@@ -76,6 +85,8 @@ public:
     const std::vector<GraphVertex> &vertices() const { return m_vertices; }
     const std::vector<quint32> &indices() const { return m_indices; }
     const QList<GraphLook::Label> &labels() const { return m_labels; }
+    // Where the tooltip goes in the last frame; empty when there is none.
+    GraphLook::Box tooltip() const { return m_tooltip; }
     // Nodes drawn in the last frame (those "Watch it grow" has reached).
     int drawnNodes() const { return m_drawn; }
     int drawnEdges() const { return m_drawnEdges; }
@@ -116,6 +127,7 @@ private:
     std::vector<GraphVertex> m_vertices;
     std::vector<quint32> m_indices;
     QList<GraphLook::Label> m_labels;
+    GraphLook::Box m_tooltip;
     int m_drawn = 0;
     int m_drawnEdges = 0;
     int m_drawnPulses = 0;
