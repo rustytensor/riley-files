@@ -26,6 +26,7 @@
 #include <QSet>
 #include <QTest>
 #include <QTimeZone>
+#include <QtMath>
 #include <QtPlugin>
 
 #include <algorithm>
@@ -153,6 +154,7 @@ private slots:
     void graphSaysWhenItCannotDraw();
     void graphGrowsOverTime();
     void graphDrawsFast();
+    void graphStaysInsideItsPane();
 };
 
 void GraphUiTests::init()
@@ -457,6 +459,72 @@ void GraphUiTests::graphDrawsFast()
         QVERIFY(grabGraph(ui).save(QDir(shots).filePath(u"graph-labels.png"_s)));
     }
 
+    QVERIFY2(ui.qmlWarnings().isEmpty(), qPrintable(ui.qmlWarnings().join(u'\n')));
+}
+
+// Marc 2026-11-14: "The 3D graph view in Riley Files goes outside of its window". Zoomed in, the graph's nodes, glows and
+// labels land far past its pane; none of it may be drawn over the sidebar, the header or anything else. The window
+// outside the graph's pane is grabbed at zoom 1 and again at the largest zoom: not one pixel there may change.
+void GraphUiTests::graphStaysInsideItsPane()
+{
+    UiHarness ui;
+    QVERIFY(makeFixture(ui));
+    const QString root = ui.root();
+    QVERIFY(ui.start({root}));
+    QTRY_VERIFY(ui.view(u"list"_s));
+    ui.press(Qt::Key_4, Qt::ControlModifier);
+    QTRY_VERIFY(ui.view(u"graph"_s));
+    QTRY_COMPARE(ui.browser().graph()->count(), 9);
+    QTRY_VERIFY(canvasOf(ui));
+    GraphCanvas *canvas = canvasOf(ui);
+    QTest::qWait(400);
+
+    QQuickItem *graph = ui.view(u"graph"_s);
+    const QRectF area = graph->mapRectToScene(QRectF(0, 0, graph->width(), graph->height()));
+    QQuickItem *sidebar = ui.item(u"sidebar"_s);
+    QVERIFY2(sidebar && sidebar->isVisible() && sidebar->width() > 50, "the sidebar must show beside the graph");
+
+    const auto outside = [&](const QImage &frame) {
+        QImage copy = frame.convertToFormat(QImage::Format_ARGB32);
+        const qreal ratio = frame.devicePixelRatio();
+        const QRect in(qFloor(area.x() * ratio), qFloor(area.y() * ratio), qCeil(area.width() * ratio),
+                       qCeil(area.height() * ratio));
+        for (int y = std::max(0, in.top()); y <= in.bottom() && y < copy.height(); ++y)
+            for (int x = std::max(0, in.left()); x <= in.right() && x < copy.width(); ++x)
+                copy.setPixel(x, y, 0);
+        return copy;
+    };
+    const QImage before = outside(ui.window()->grabWindow());
+
+    for (int notch = 0; notch < 14; ++notch) {
+        const QPointF middle = canvas->mapToScene(QPointF(canvas->width() / 2, canvas->height() / 2));
+        QWheelEvent wheel(middle, ui.window()->mapToGlobal(middle), QPoint(), QPoint(0, 120), Qt::NoButton,
+                          Qt::NoModifier, Qt::NoScrollPhase, false);
+        QGuiApplication::sendEvent(ui.window(), &wheel);
+    }
+    QTRY_VERIFY(canvas->zoom() > 6.9);
+    QTest::qWait(400);
+    // Nodes now lie far outside the pane: without that, the check would prove nothing.
+    QQuickItem *scene = ui.view(u"graphScene"_s);
+    QVERIFY(scene);
+    int nodesOutside = 0;
+    for (int node = 0; node < ui.browser().graph()->count(); ++node) {
+        QVariant point;
+        QVERIFY(QMetaObject::invokeMethod(scene, "screenPointOf", Q_RETURN_ARG(QVariant, point), Q_ARG(QVariant, node)));
+        nodesOutside += !area.contains(scene->mapToScene(point.toPointF()));
+    }
+    QVERIFY2(nodesOutside > 0, "no node lies outside the pane at this zoom");
+
+    const QImage frame = ui.window()->grabWindow();
+    const QImage after = outside(frame);
+    QCOMPARE(after.size(), before.size());
+    int changed = 0;
+    for (int y = 0; y < after.height(); ++y)
+        for (int x = 0; x < after.width(); ++x)
+            changed += after.pixel(x, y) != before.pixel(x, y);
+    if (const QString shots = qEnvironmentVariable("RILEY_SHOTS"); changed && !shots.isEmpty())
+        frame.save(QDir(shots).filePath(u"graph-spill.png"_s));
+    QCOMPARE(changed, 0);
     QVERIFY2(ui.qmlWarnings().isEmpty(), qPrintable(ui.qmlWarnings().join(u'\n')));
 }
 

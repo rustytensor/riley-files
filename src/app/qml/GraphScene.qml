@@ -14,6 +14,8 @@ import QtQuick
 Item {
     id: scene
     objectName: "graphScene"
+    // Zoomed in, nodes, glows and labels land far past the pane: nothing is drawn outside it.
+    clip: true
 
     required property Browser browser
     readonly property var colours: scene.browser.graphPalette
