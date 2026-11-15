@@ -375,6 +375,23 @@ void Preferences::refresh()
     emit valuesChanged();
 }
 
+void Preferences::follow(const QString &id, const QString &value)
+{
+    const int option = optionOf(id);
+    if (option < 0)
+        return;
+    m_settings->sync();
+    // A copy: what `set` does may replace the page's options.
+    const Option o = m_options.at(option);
+    if (o.set)
+        o.set(value);
+    const int row = rowOfOption(optionOf(o.id));
+    if (row >= 0)
+        emit dataChanged(index(row), index(row));
+    emit valuesChanged();
+    emit changed(o.id, value);
+}
+
 void Preferences::refresh(const QString &id)
 {
     const int row = rowOfOption(optionOf(id));

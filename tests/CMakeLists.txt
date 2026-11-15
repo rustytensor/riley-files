@@ -240,3 +240,18 @@ add_dependencies(indexui_tests riley-files-indexer)
 
 add_test(NAME indexui_tests COMMAND indexui_tests)
 set_tests_properties(indexui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# The path bar in the window: a click on its empty part types the location, what is typed opens
+# a folder or a file's folder (or says why it cannot), and Tab completes folder names.
+add_executable(pathbarui_tests pathbarui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(pathbarui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME pathbarui_tests COMMAND pathbarui_tests)
+set_tests_properties(pathbarui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")
+
+# Tabs in the real window: each its own browser, switched with the keys.
+add_executable(tabsui_tests tabsui_tests.cpp uiharness.h uiharness.cpp)
+target_link_libraries(tabsui_tests PRIVATE riley-ui riley_warnings Qt6::Test)
+
+add_test(NAME tabsui_tests COMMAND tabsui_tests)
+set_tests_properties(tabsui_tests PROPERTIES ENVIRONMENT "LANG=en_US.UTF-8;QT_QPA_PLATFORM=offscreen")

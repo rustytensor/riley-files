@@ -163,7 +163,7 @@ bool UiHarness::start(const QStringList &arguments)
         }
     });
 
-    if (!m_app->load(line.startLocation()))
+    if (!m_app->load(line.locations))
         return false;
     QQuickWindow *w = m_app->window();
     w->show();
@@ -191,6 +191,11 @@ QQuickWindow *UiHarness::window() const
 Browser &UiHarness::browser() const
 {
     return m_app->browser();
+}
+
+Tabs &UiHarness::tabs() const
+{
+    return m_app->tabs();
 }
 
 Riley::Thumbnailer &UiHarness::thumbnailer() const

@@ -94,6 +94,18 @@ Rectangle {
         height: Theme.rowHeight
         clip: true
 
+        // The empty part of the path bar, right of the last part: a click there types the
+        // location instead (as Ctrl+L). The parts lie over it and keep their own clicks.
+        MouseArea {
+            objectName: "pathBarEmpty"
+            anchors.fill: parent
+            cursorShape: Qt.IBeamCursor
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Type a location")
+            Accessible.onPressAction: bar.browser.editLocation()
+            onClicked: bar.browser.editLocation()
+        }
+
         Row {
             id: crumbs
             x: Math.min(0, crumbBox.width - width)
@@ -164,9 +176,20 @@ Rectangle {
 
         onVisibleChanged: {
             if (visible) {
-                location.text = bar.browser.folder
+                location.text = bar.browser.locationText
                 location.selectAll()
                 location.forceActiveFocus()
+            }
+        }
+
+        Connections {
+            target: bar.browser
+            // Completion and a chosen suggestion put the text; the cursor goes to its end.
+            function onLocationTextChanged() {
+                if (location.text !== bar.browser.locationText) {
+                    location.text = bar.browser.locationText
+                    location.cursorPosition = location.text.length
+                }
             }
         }
 
@@ -176,6 +199,7 @@ Rectangle {
 
             Accessible.role: Accessible.EditableText
             Accessible.name: qsTr("Location")
+            Accessible.description: bar.browser.locationError
 
             anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
             verticalAlignment: TextInput.AlignVCenter
@@ -186,19 +210,92 @@ Rectangle {
             font.pixelSize: Theme.fontNormal
             selectByMouse: true
 
-            Keys.onReturnPressed: event => {
-                bar.browser.openTypedLocation(text)
-                event.accepted = true
+            // Tab completes, Up and Down choose a suggestion, Return opens, Escape leaves.
+            Keys.onPressed: event => {
+                event.accepted = bar.browser.locationFieldKey(event.key, event.modifiers)
             }
-            Keys.onEnterPressed: event => {
-                bar.browser.openTypedLocation(text)
-                event.accepted = true
-            }
-            Keys.onEscapePressed: event => {
-                bar.browser.cancelLocation()
-                event.accepted = true
-            }
+            onTextEdited: bar.browser.setLocationText(text)
             onActiveFocusChanged: if (!activeFocus && locationBox.visible) bar.browser.cancelLocation()
+        }
+    }
+
+    // Under the field: why the typed location cannot be opened.
+    Rectangle {
+        id: errorBox
+        visible: bar.browser.locationEditing && bar.browser.locationError.length > 0
+        anchors { left: locationBox.left; right: locationBox.right; top: locationBox.bottom; topMargin: 2 }
+        height: errorText.implicitHeight + 8
+        radius: 4
+        color: Theme.card
+        border.color: Theme.danger
+        border.width: 1
+
+        Text {
+            id: errorText
+            objectName: "locationError"
+            anchors { left: parent.left; right: parent.right; leftMargin: 6; rightMargin: 6; verticalCenter: parent.verticalCenter }
+            text: bar.browser.locationError
+            color: Theme.danger
+            elide: Text.ElideRight
+            font.pixelSize: Theme.fontNormal
+            Accessible.role: Accessible.AlertMessage
+            Accessible.name: text
+        }
+    }
+
+    // Under the field: the folders the location can be completed with (Tab).
+    Rectangle {
+        id: suggestionsBox
+        visible: bar.browser.locationEditing && bar.browser.locationSuggestions.length > 0
+        anchors { left: locationBox.left; right: locationBox.right; top: locationBox.bottom; topMargin: 2 }
+        height: Math.min(suggestions.count, 8) * Theme.rowHeight + 4
+        radius: 4
+        color: Theme.card
+        border.color: Theme.cardBorder
+        border.width: 1
+
+        ListView {
+            id: suggestions
+            objectName: "locationSuggestions"
+            anchors { fill: parent; margins: 2 }
+            clip: true
+            model: bar.browser.locationSuggestions
+            currentIndex: bar.browser.locationSuggestion
+            boundsBehavior: Flickable.StopAtBounds
+            Accessible.role: Accessible.List
+            Accessible.name: qsTr("Folders")
+
+            delegate: Rectangle {
+                id: suggestion
+
+                required property string modelData
+                required property int index
+                readonly property string name: modelData
+
+                width: ListView.view.width
+                height: Theme.rowHeight
+                radius: 3
+                color: suggestion.index === bar.browser.locationSuggestion
+                       ? Theme.cursorRow : (suggestionMouse.containsMouse ? Theme.hoverRow : Theme.none)
+                Accessible.role: Accessible.ListItem
+                Accessible.name: suggestion.name
+                Accessible.onPressAction: bar.browser.chooseLocationSuggestion(suggestion.index)
+
+                Text {
+                    anchors { left: parent.left; leftMargin: 6; right: parent.right; verticalCenter: parent.verticalCenter }
+                    text: suggestion.name + "/"
+                    color: Theme.text
+                    elide: Text.ElideRight
+                    font.pixelSize: Theme.fontNormal
+                }
+
+                MouseArea {
+                    id: suggestionMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: bar.browser.chooseLocationSuggestion(suggestion.index)
+                }
+            }
         }
     }
 

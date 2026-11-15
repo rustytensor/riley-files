@@ -22,8 +22,7 @@ CommandLine CommandLine::parse(const QStringList &arguments)
         QCoreApplication::translate("CommandLine", "Load the main window, wait for the first frame that shows "
                                                    "the folder's files, print how long that took, then exit."));
     parser.addOption(timeStartOption);
-    // The desktop file passes folders or URLs to open. One window shows the first; tabs for the
-    // others come later.
+    // The desktop file passes folders or URLs to open. One window shows them, a tab for each.
     parser.addPositionalArgument(QStringLiteral("locations"),
                                  QCoreApplication::translate("CommandLine", "Folders to open."),
                                  QCoreApplication::translate("CommandLine", "[locations...]"));

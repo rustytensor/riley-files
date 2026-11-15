@@ -3,6 +3,7 @@
 
 #include "appwindow.h"
 #include "browser.h"
+#include "tabs.h"
 #include "commandline.h"
 #include "translations.h"
 #include "uicheck.h"
@@ -37,19 +38,20 @@ int main(int argc, char *argv[])
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
-    // File > New Window: another window on the same folder, with its own browser. Closing the
+    // File > New Window: another window on the same folder, with its own tabs. Closing the
     // last one quits.
     std::vector<std::unique_ptr<AppWindow>> more;
-    std::function<void(Browser &)> offerNewWindows = [&](Browser &browser) {
-        QObject::connect(&browser, &Browser::newWindowAsked, &app, [&](const QString &folder) {
+    std::function<void(Tabs &)> offerNewWindows = [&](Tabs &tabs) {
+        QObject::connect(&tabs, &Tabs::newWindowAsked, &app, [&](const QString &folder) {
             auto another = std::make_unique<AppWindow>();
-            offerNewWindows(another->browser());
+            offerNewWindows(another->tabs());
             another->load(folder);
             more.push_back(std::move(another));
         }, Qt::QueuedConnection);
     };
-    offerNewWindows(window.browser());
-    window.load(line.startLocation());
+    offerNewWindows(window.tabs());
+    // A tab for each location given, the first one active.
+    window.load(line.locations);
 
     if (check) {
         if (line.timeStart)

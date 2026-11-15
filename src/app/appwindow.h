@@ -5,17 +5,19 @@
 
 #include <QQmlApplicationEngine>
 #include <QString>
+#include <QStringList>
 
 #include <memory>
 
 class Browser;
+class Tabs;
 namespace Riley {
 class Thumbnailer;
 }
 class QQuickWindow;
 
-// One main window: the QML engine, the Main window from the RileyFiles module and the browser
-// behind it. The program makes one; the interface tests make one per test, the same way.
+// One main window: the QML engine, the Main window from the RileyFiles module and its tabs, a
+// browser behind each. The program makes one; the interface tests make one per test, the same way.
 class AppWindow
 {
 public:
@@ -28,12 +30,16 @@ public:
 
     // The engine, for watching its warnings before load().
     QQmlApplicationEngine &engine() { return *m_engine; }
-    Browser &browser() { return *m_browser; }
+    // The active tab's browser.
+    Browser &browser() const;
+    Tabs &tabs() const { return *m_tabs; }
     Riley::Thumbnailer &thumbnailer() { return *m_thumbnailer; }
 
     // Opens `location` (see Browser::openLocation) and loads the window. False when the window
     // did not load.
     bool load(const QString &location);
+    // The same with a tab for each location, the first active; none means the home folder.
+    bool load(const QStringList &locations);
 
     // The loaded window, or null.
     QQuickWindow *window() const;
@@ -41,8 +47,8 @@ public:
 private:
     // The language is chosen before anything that shows words is made.
     QString m_language;
-    // The browser outlives the engine, so no binding ever reads a deleted browser.
-    std::unique_ptr<Browser> m_browser;
+    // The tabs (and their browsers) outlive the engine, so no binding ever reads a deleted browser.
+    std::unique_ptr<Tabs> m_tabs;
     // Makes the grid's thumbnails; shared with the engine's image provider.
     std::shared_ptr<Riley::Thumbnailer> m_thumbnailer;
     std::unique_ptr<QQmlApplicationEngine> m_engine;

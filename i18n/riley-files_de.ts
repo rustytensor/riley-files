@@ -4,6 +4,18 @@
 <context>
     <name>Actions</name>
     <message>
+        <source>Tab</source>
+        <translation>Tab</translation>
+    </message>
+    <message>
+        <source>PgUp</source>
+        <translation>Bild auf</translation>
+    </message>
+    <message>
+        <source>PgDown</source>
+        <translation>Bild ab</translation>
+    </message>
+    <message>
         <source>Ctrl</source>
         <translation>Strg</translation>
     </message>
@@ -93,6 +105,34 @@
 </context>
 <context>
     <name>Browser</name>
+    <message>
+        <source>New Tab</source>
+        <translation>Neuer Tab</translation>
+    </message>
+    <message>
+        <source>Reopen Closed Tab</source>
+        <translation>Geschlossenen Tab wieder öffnen</translation>
+    </message>
+    <message>
+        <source>Open in New Tab</source>
+        <translation>In neuem Tab öffnen</translation>
+    </message>
+    <message>
+        <source>Next Tab</source>
+        <translation>Nächster Tab</translation>
+    </message>
+    <message>
+        <source>Previous Tab</source>
+        <translation>Vorheriger Tab</translation>
+    </message>
+    <message>
+        <source>Go to Tab</source>
+        <translation>Zu Tab wechseln</translation>
+    </message>
+    <message>
+        <source>Close Tab</source>
+        <translation>Tab schließen</translation>
+    </message>
     <message>
         <source>Trash</source>
         <translation>Papierkorb</translation>
@@ -1385,6 +1425,14 @@
         <translation>Ort</translation>
     </message>
     <message>
+        <source>Type a location</source>
+        <translation>Einen Ort eingeben</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Ordner</translation>
+    </message>
+    <message>
         <source>Find inside files</source>
         <translation>In Dateien suchen</translation>
     </message>
@@ -2041,6 +2089,24 @@
     <message>
         <source>folder</source>
         <translation>Ordner</translation>
+    </message>
+</context>
+<context>
+    <name>Tabs</name>
+    <message>
+        <source>Home</source>
+        <translation>Persönlicher Ordner</translation>
+    </message>
+</context>
+<context>
+    <name>TabStrip</name>
+    <message>
+        <source>Tabs</source>
+        <translation>Tabs</translation>
+    </message>
+    <message>
+        <source>Close “%1”</source>
+        <translation>„%1“ schließen</translation>
     </message>
 </context>
 </TS>

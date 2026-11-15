@@ -78,7 +78,17 @@ Item {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
-        onClicked: tile.browser.clickRow(tile.index)
-        onDoubleClicked: tile.browser.doubleClickRow(tile.index)
+        // The middle button opens a folder in a new tab, in the background.
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        onClicked: event => {
+            if (event.button === Qt.MiddleButton)
+                tile.browser.openRowInTab(tile.index)
+            else
+                tile.browser.clickRow(tile.index)
+        }
+        onDoubleClicked: event => {
+            if (event.button === Qt.LeftButton)
+                tile.browser.doubleClickRow(tile.index)
+        }
     }
 }

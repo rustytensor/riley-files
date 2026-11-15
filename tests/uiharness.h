@@ -11,6 +11,7 @@
 
 class AppWindow;
 class Browser;
+class Tabs;
 namespace Riley {
 class Thumbnailer;
 }
@@ -54,14 +55,16 @@ public:
     // Makes an empty file (and the folders it needs) below root().
     bool makeFile(const QString &relativePath, qint64 size = 0) const;
 
-    // Starts a window as `riley-files <arguments...>` would, shows it and waits until it is
+    // Starts a window as `riley-files <arguments...>` would (a tab for each location), shows it and waits until it is
     // active and has drawn. A window already open is closed first; the settings stay.
     bool start(const QStringList &arguments);
     // Closes the window, as quitting the program does.
     void stop();
 
     QQuickWindow *window() const;
+    // The active tab's browser, and the window's tabs.
     Browser &browser() const;
+    Tabs &tabs() const;
     // What makes the window's thumbnails; they go to "<scratch>/cache/thumbnails". The window's
     // config folder (XDG_CONFIG_HOME: pinned folders, user-dirs.dirs, mimeapps.list) is
     // "<scratch>/config", and its data folder (XDG_DATA_HOME: trash, custom icons) "<scratch>/data".

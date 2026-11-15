@@ -4,6 +4,18 @@
 <context>
     <name>Actions</name>
     <message>
+        <source>Tab</source>
+        <translation>Tab</translation>
+    </message>
+    <message>
+        <source>PgUp</source>
+        <translation>Page préc.</translation>
+    </message>
+    <message>
+        <source>PgDown</source>
+        <translation>Page suiv.</translation>
+    </message>
+    <message>
         <source>Ctrl</source>
         <translation>Ctrl</translation>
     </message>
@@ -93,6 +105,34 @@
 </context>
 <context>
     <name>Browser</name>
+    <message>
+        <source>New Tab</source>
+        <translation>Nouvel onglet</translation>
+    </message>
+    <message>
+        <source>Reopen Closed Tab</source>
+        <translation>Rouvrir l’onglet fermé</translation>
+    </message>
+    <message>
+        <source>Open in New Tab</source>
+        <translation>Ouvrir dans un nouvel onglet</translation>
+    </message>
+    <message>
+        <source>Next Tab</source>
+        <translation>Onglet suivant</translation>
+    </message>
+    <message>
+        <source>Previous Tab</source>
+        <translation>Onglet précédent</translation>
+    </message>
+    <message>
+        <source>Go to Tab</source>
+        <translation>Aller à l’onglet</translation>
+    </message>
+    <message>
+        <source>Close Tab</source>
+        <translation>Fermer l’onglet</translation>
+    </message>
     <message>
         <source>Trash</source>
         <translation>Corbeille</translation>
@@ -1385,6 +1425,14 @@
         <translation>Emplacement</translation>
     </message>
     <message>
+        <source>Type a location</source>
+        <translation>Saisir un emplacement</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Dossiers</translation>
+    </message>
+    <message>
         <source>Find inside files</source>
         <translation>Rechercher dans les fichiers</translation>
     </message>
@@ -2041,6 +2089,24 @@
     <message>
         <source>folder</source>
         <translation>dossier</translation>
+    </message>
+</context>
+<context>
+    <name>Tabs</name>
+    <message>
+        <source>Home</source>
+        <translation>Dossier personnel</translation>
+    </message>
+</context>
+<context>
+    <name>TabStrip</name>
+    <message>
+        <source>Tabs</source>
+        <translation>Onglets</translation>
+    </message>
+    <message>
+        <source>Close “%1”</source>
+        <translation>Fermer « %1 »</translation>
     </message>
 </context>
 </TS>

@@ -131,6 +131,9 @@ public:
     void refresh();
     // One option read again.
     void refresh(const QString &id);
+    // An option another tab's Preferences changed: read again from the settings file and applied here, as
+    // though it had been set here (changed() is sent; nothing is written).
+    void follow(const QString &id, const QString &value);
 
     // QAbstractItemModel
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;

@@ -3,14 +3,17 @@
 
 import QtQuick
 
-// The main window: the menu bar and a header across the top, the sidebar on the left, the folder in the middle,
+// The main window: the menu bar and a header across the top, the tabs under it when there are two
+// or more, the sidebar on the left, the folder in the middle,
 // the details pane on the right when it is shown, and along the bottom the messages and the
 // progress of file operations. The preview, when open, lies over all of it. Every key goes to the
-// browser, which decides what it does; only a name being edited takes the typing.
+// browser, which decides what it does; only a name being edited takes the typing. Everything shows
+// the active tab's browser, and follows it when another tab becomes active.
 Window {
     id: root
 
-    required property Browser browser
+    required property Tabs tabs
+    readonly property Browser browser: tabs.browser
 
     width: 1100
     height: 700
@@ -41,7 +44,16 @@ Window {
         HeaderBar {
             id: header
             browser: root.browser
+            // Over the panes below it, for the suggestions and errors under the location field.
+            z: 1
             anchors { top: menuBar.bottom; left: parent.left; right: parent.right }
+        }
+
+        TabStrip {
+            id: tabStrip
+            tabs: root.tabs
+            height: implicitHeight
+            anchors { top: header.bottom; left: parent.left; right: parent.right }
         }
 
         Sidebar {
@@ -49,7 +61,7 @@ Window {
             browser: root.browser
             visible: root.browser.sidebarShown
             width: visible ? implicitWidth : 0
-            anchors { top: header.bottom; bottom: parent.bottom; left: parent.left }
+            anchors { top: tabStrip.bottom; bottom: parent.bottom; left: parent.left }
         }
 
         DetailsPane {
@@ -57,13 +69,23 @@ Window {
             browser: root.browser
             visible: root.browser.detailsShown
             width: visible ? implicitWidth : 0
-            anchors { top: header.bottom; bottom: parent.bottom; right: parent.right }
+            anchors { top: tabStrip.bottom; bottom: parent.bottom; right: parent.right }
         }
 
-        ContentArea {
+        // Made again for each tab that becomes active, so its views start from that tab's own
+        // cursor, page size and columns.
+        Item {
             id: content
-            browser: root.browser
-            anchors { top: header.bottom; bottom: bottomBars.top; left: sidebar.right; right: details.left }
+            anchors { top: tabStrip.bottom; bottom: bottomBars.top; left: sidebar.right; right: details.left }
+
+            Repeater {
+                model: [root.browser]
+                delegate: ContentArea {
+                    required property Browser modelData
+                    browser: modelData
+                    anchors.fill: parent
+                }
+            }
         }
 
         // Each pane's edge drags its width; a double-click gives it back the chosen way's.
@@ -72,7 +94,7 @@ Window {
             visible: sidebar.visible
             panes: root.browser.panes
             pane: "sidebar"
-            anchors { top: header.bottom; bottom: parent.bottom; horizontalCenter: sidebar.right }
+            anchors { top: tabStrip.bottom; bottom: parent.bottom; horizontalCenter: sidebar.right }
         }
 
         PaneDivider {
@@ -80,7 +102,7 @@ Window {
             visible: details.visible
             panes: root.browser.panes
             pane: "details"
-            anchors { top: header.bottom; bottom: parent.bottom; horizontalCenter: details.left }
+            anchors { top: tabStrip.bottom; bottom: parent.bottom; horizontalCenter: details.left }
         }
 
         // Along the bottom, from the edge up: progress, messages, and the name editor of the
@@ -195,10 +217,18 @@ Window {
 
     // The automatic pane widths measure names in the rows' font, with what else a row holds:
     // a sidebar row its margins and icon, a column row its margins, icon and folder mark.
-    Component.onCompleted: root.browser.panes.setRowFont(
-        Qt.font({ pixelSize: Theme.fontNormal }),
-        Math.ceil(Theme.spacing * 3.75 + 16 + 1),
-        Math.ceil(Theme.spacing * 3.25 + Theme.iconSize + 10))
+    // Each tab's browser is told when it is first shown.
+    function tellRowFont() {
+        root.browser.panes.setRowFont(
+            Qt.font({ pixelSize: Theme.fontNormal }),
+            Math.ceil(Theme.spacing * 3.75 + 16 + 1),
+            Math.ceil(Theme.spacing * 3.25 + Theme.iconSize + 10))
+    }
+    Component.onCompleted: tellRowFont()
+    onBrowserChanged: {
+        tellRowFont()
+        giveKeysBack()
+    }
 
     // The keys go back to the browser: to the Preferences row they are on while the Preferences are
     // open, to the search field while it is shown, or else to the window.

@@ -129,6 +129,14 @@ class Browser : public QObject
     Q_PROPERTY(bool sidebarShown READ sidebarShown WRITE setSidebarShown NOTIFY sidebarShownChanged)
     // The folder's path being typed in the header (Ctrl+L).
     Q_PROPERTY(bool locationEditing READ locationEditing NOTIFY locationEditingChanged)
+    // What the location field holds while it is edited; the field shows it and gives back what is typed.
+    Q_PROPERTY(QString locationText READ locationText NOTIFY locationTextChanged)
+    // Why the typed location cannot be opened (shown under the field), or empty.
+    Q_PROPERTY(QString locationError READ locationError NOTIFY locationErrorChanged)
+    // The folders the typed location can be completed with (Tab), in the listing's order, and the
+    // one chosen with Up and Down (-1 for none).
+    Q_PROPERTY(QStringList locationSuggestions READ locationSuggestions NOTIFY locationSuggestionsChanged)
+    Q_PROPERTY(int locationSuggestion READ locationSuggestion NOTIFY locationSuggestionsChanged)
     // The list of every action and its key, over the window (F1).
     Q_PROPERTY(bool shortcutsShown READ shortcutsShown WRITE setShortcutsShown NOTIFY shortcutsShownChanged)
     // How the panes get their widths: "fixed", "automatic" or "proportional".
@@ -267,6 +275,21 @@ public:
     // "~" is the home folder and a relative path starts at the folder shown.
     Q_INVOKABLE void openTypedLocation(const QString &text);
     Q_INVOKABLE void cancelLocation();
+    // Starts typing a location, the field holding the folder's path (Ctrl+L, or a click on the
+    // empty part of the path bar).
+    Q_INVOKABLE void editLocation();
+    QString locationText() const { return m_locationText; }
+    QString locationError() const { return m_locationError; }
+    QStringList locationSuggestions() const { return m_locationSuggestions; }
+    int locationSuggestion() const { return m_locationSuggestion; }
+    // What was typed in the field (each edit).
+    Q_INVOKABLE void setLocationText(const QString &text);
+    // A key in the location field: Tab completes, Up and Down choose a suggestion, Return opens
+    // (or takes the chosen suggestion), Escape closes the suggestions and then the field. True
+    // when the key was used.
+    Q_INVOKABLE bool locationFieldKey(int key, int modifiers);
+    // Puts the suggestion at this row in the field, as "<its path>/".
+    Q_INVOKABLE void chooseLocationSuggestion(int row);
     bool shortcutsShown() const { return m_shortcutsShown; }
     void setShortcutsShown(bool shown);
     QString paneWidths() const { return m_paneWidths; }
@@ -433,6 +456,13 @@ public:
     // One key press from the window. Returns true when it was used.
     Q_INVOKABLE bool handleKey(int key, int modifiers, const QString &text);
 
+    // How many tabs the window has, told by its tabs: with more than one, Close Window closes
+    // this tab instead, and the keys between tabs can be used.
+    void setTabCount(int tabs);
+    int tabCount() const { return m_tabCount; }
+    // The middle button on a row: a folder opens in a new tab, in the background.
+    Q_INVOKABLE void openRowInTab(int row);
+
     // What the file keys act on: the selection of the active folder, or else the row under its
     // cursor. Empty when there is neither.
     QStringList targetPaths() const;
@@ -458,6 +488,9 @@ signals:
     void detailsShownChanged();
     void sidebarShownChanged();
     void locationEditingChanged();
+    void locationTextChanged();
+    void locationErrorChanged();
+    void locationSuggestionsChanged();
     void shortcutsShownChanged();
     void paneWidthsChanged();
     void questionChanged();
@@ -479,6 +512,14 @@ signals:
     // this one.
     void newWindowAsked(const QString &folder);
     void closeWindowAsked();
+    // Asks the window's tabs (tabs.cpp): a new tab on `location`, in the background or made
+    // active; closing this tab; opening the tab closed last again; the next tab (by 1) or the
+    // one before (by -1); the tab at `row`, counted from 0.
+    void newTabAsked(const QString &location, bool background);
+    void closeTabAsked();
+    void reopenTabAsked();
+    void stepTabAsked(int by);
+    void goToTabAsked(int row);
 
 private:
     struct Step
@@ -537,9 +578,10 @@ private:
     void measureSidebar();
     void measureColumns();
     void setSortKey(Riley::FolderModel::Sort key);
-    void editLocation();
     void showAbout();
     bool shortcutsKey(int key, Qt::KeyboardModifiers mods);
+    // The keys that go between tabs, wherever the keys are (browseractions.cpp).
+    bool tabKey(int key, Qt::KeyboardModifiers mods);
     bool questionKey(int key, Qt::KeyboardModifiers mods);
     bool landAim();
     bool sidebarKey(int key, Qt::KeyboardModifiers mods);
@@ -634,7 +676,23 @@ private:
     std::unique_ptr<Actions> m_actions;
     bool m_sidebarShown = true;
     bool m_locationEditing = false;
+    QString m_locationText;
+    QString m_locationError;
+    QString m_suggestionsIn; // the folder the suggestions are in, ending in "/"
+    QStringList m_locationSuggestions;
+    int m_locationSuggestion = -1;
+    // The typed text as a path: "~" is the home folder, a relative path starts at the folder shown.
+    QString expandTypedLocation(const QString &text) const;
+    // The folders in the typed path's folder whose names start with its last part.
+    QStringList locationMatches(const QString &expanded, QString *in) const;
+    void setLocationSuggestions(const QString &in, const QStringList &names);
+    void setLocationError(const QString &error);
+    void putLocationText(const QString &text);
+    void completeLocation();
     bool m_shortcutsShown = false;
+    int m_tabCount = 1;
+    // The key that ran the action being run, for Go to Tab (Alt+1 to Alt+9); 0 from a menu.
+    int m_keyNow = 0;
     QString m_paneWidths = QStringLiteral("fixed");
     std::unique_ptr<PaneWidths> m_panes;
     std::unique_ptr<Preferences> m_prefs;

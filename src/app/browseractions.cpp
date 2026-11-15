@@ -41,10 +41,20 @@ void Browser::addActions()
     // File
     a.add({u"new-window"_s, tr("New Window"), key(Qt::Key_N, ctrl), {},
            [this] { emit newWindowAsked(folder()); }, {}, {}});
+    // Tabs: each a browser of its own (tabs.cpp does what these ask for).
+    a.add({u"new-tab"_s, tr("New Tab"), key(Qt::Key_T, ctrl), {},
+           [this] { emit newTabAsked(m_place.isEmpty() ? folder() : QString(), false); }, {}, {}});
+    a.add({u"reopen-tab"_s, tr("Reopen Closed Tab"), key(Qt::Key_T, ctrlShift), {},
+           [this] { emit reopenTabAsked(); }, {}, {}});
     a.add({u"new-folder"_s, tr("New Folder"), key(Qt::Key_N, ctrlShift), {},
            [this] { m_ops->newFolder(workFolder()); }, changeable, {}});
     a.add({u"open"_s, tr("Open"), key(Qt::Key_Return), {key(Qt::Key_Enter), key(Qt::Key_Down, alt)},
            [this] { openUnderCursor(); }, hasRow, {}});
+    // A folder in a new tab next to this one, in the background, as the middle button does.
+    a.add({u"open-in-tab"_s, tr("Open in New Tab"), key(Qt::Key_Return, ctrl), {key(Qt::Key_Enter, ctrl)},
+           [this] { emit newTabAsked(activeModel()->pathAt(activeCursor()), true); },
+           [this] { return activeModel()->isDirAt(activeCursor()) && !activeModel()->pathAt(activeCursor()).isEmpty(); },
+           {}});
     a.add({u"preview"_s, tr("Preview"), key(Qt::Key_Space), {},
            [this] {
                const QString path = activeModel()->pathAt(activeCursor());
@@ -105,7 +115,15 @@ void Browser::addActions()
            {}});
     a.add({u"properties"_s, tr("Properties"), {}, {}, [this] { setDetailsShown(true); }, {}, {}});
     a.add({u"close-window"_s, tr("Close Window"), key(Qt::Key_W, ctrl), {},
-           [this] { emit closeWindowAsked(); }, {}, {}});
+           [this] {
+               // With more than one tab it closes the tab the keys are in (setTabCount says
+               // so in its label); the last tab closes the window.
+               if (m_tabCount > 1)
+                   emit closeTabAsked();
+               else
+                   emit closeWindowAsked();
+           },
+           {}, {}});
     a.add({u"quit"_s, tr("Quit"), key(Qt::Key_Q, ctrl), {}, [] { QCoreApplication::quit(); }, {}, {}});
 
     // Edit
@@ -183,6 +201,21 @@ void Browser::addActions()
     a.add({u"recent"_s, tr("Recent Files"), {}, {}, [this] { showRecent(); }, {}, {}});
     a.add({u"trash-place"_s, tr("Trash"), {}, {}, [this] { showTrash(); }, {}, {}});
     a.add({u"location"_s, tr("Location"), key(Qt::Key_L, ctrl), {}, [this] { editLocation(); }, {}, {}});
+    const auto severalTabs = [this] { return m_tabCount > 1; };
+    a.add({u"next-tab"_s, tr("Next Tab"), key(Qt::Key_PageDown, ctrl), {key(Qt::Key_Tab, ctrl)},
+           [this] { emit stepTabAsked(1); }, severalTabs, {}});
+    a.add({u"previous-tab"_s, tr("Previous Tab"), key(Qt::Key_PageUp, ctrl), {key(Qt::Key_Tab, ctrlShift)},
+           [this] { emit stepTabAsked(-1); }, severalTabs, {}});
+    // Alt+1 to Alt+9: the tab with that number; from the menu, the first.
+    QList<Actions::Key> tabNumbers;
+    for (int k = Qt::Key_2; k <= Qt::Key_9; ++k)
+        tabNumbers.append(key(k, alt));
+    a.add({u"go-to-tab"_s, tr("Go to Tab"), key(Qt::Key_1, alt), tabNumbers,
+           [this] {
+               const int row = m_keyNow >= Qt::Key_1 && m_keyNow <= Qt::Key_9 ? m_keyNow - Qt::Key_1 : 0;
+               emit goToTabAsked(row);
+           },
+           severalTabs, {}});
     a.add({u"pin"_s, tr("Pin to Sidebar"), key(Qt::Key_D, ctrl), {}, [this] { togglePin(); },
            [this] { return !folder().isEmpty(); }, [this] { return folderPinned(); }});
 
@@ -203,7 +236,8 @@ void Browser::addActions()
 
     a.setMenus({
         {tr("File"),
-         {item(u"new-window"), item(u"new-folder"), sep, item(u"open"), openWith, item(u"preview"), sep,
+         {item(u"new-window"), item(u"new-tab"), item(u"reopen-tab"), item(u"new-folder"), sep, item(u"open"),
+          item(u"open-in-tab"), openWith, item(u"preview"), sep,
           item(u"rename"), item(u"trash"), item(u"delete-for-good"), item(u"restore"), item(u"empty-trash"), sep,
           item(u"previous-versions"), sep, item(u"change-icon"), item(u"reset-icon"), sep, item(u"connect"), sep,
           item(u"close-window"),
@@ -216,7 +250,8 @@ void Browser::addActions()
           sep, item(u"sidebar"), item(u"details"), sep, sortMenu, panesMenu, sep, item(u"reload")}},
         {tr("Go"),
          {item(u"back"), item(u"forward"), item(u"up"), item(u"home"), sep, item(u"recent"), item(u"trash-place"),
-          sep, item(u"location"), item(u"pin")}},
+          sep, item(u"location"), item(u"pin"), sep, item(u"next-tab"), item(u"previous-tab"),
+          item(u"go-to-tab")}},
         {tr("Help"), {item(u"shortcuts"), item(u"about")}},
     });
     a.setContextMenus(
@@ -266,41 +301,6 @@ void Browser::contextMenuAt(int row, qreal x, qreal y)
     m_actions->openContextMenu(onFile, QPointF(x, y));
 }
 
-void Browser::editLocation()
-{
-    if (m_locationEditing)
-        return;
-    m_locationEditing = true;
-    emit locationEditingChanged();
-}
-
-void Browser::cancelLocation()
-{
-    if (!m_locationEditing)
-        return;
-    m_locationEditing = false;
-    emit locationEditingChanged();
-}
-
-void Browser::openTypedLocation(const QString &text)
-{
-    cancelLocation();
-    QString path = text.trimmed();
-    if (path.isEmpty())
-        return;
-    if (path == QLatin1String("~"))
-        path = QDir::homePath();
-    else if (path.startsWith(QLatin1String("~/")))
-        path = QDir::homePath() + path.mid(1);
-    else if (!path.contains(QLatin1String("://")) && QDir::isRelativePath(path))
-        path = QDir(folder()).filePath(path);
-    if (!path.contains(QLatin1String("://")) && !QFileInfo::exists(path)) {
-        m_ops->say(tr("There is no folder “%1”.").arg(text.trimmed()));
-        return;
-    }
-    openLocation(path);
-}
-
 void Browser::showAbout()
 {
     const QString version = QCoreApplication::applicationVersion();
@@ -310,6 +310,38 @@ void Browser::showAbout()
                    : tr("Riley Files %1, the file manager of the Riley desktop. Free software under the GNU "
                         "General Public License, version 3 or later.")
                          .arg(version));
+}
+
+void Browser::setTabCount(int tabs)
+{
+    if (tabs == m_tabCount)
+        return;
+    m_tabCount = tabs;
+    m_actions->setLabel(u"close-window"_s, tabs > 1 ? tr("Close Tab") : tr("Close Window"));
+}
+
+void Browser::openRowInTab(int row)
+{
+    if (row < 0 || row >= m_model->count() || !m_model->isDirAt(row))
+        return;
+    emit newTabAsked(m_model->pathAt(row), true);
+}
+
+bool Browser::tabKey(int key, Qt::KeyboardModifiers mods)
+{
+    // Shift+Tab comes as its own key; it is Tab with Shift held.
+    if (key == Qt::Key_Backtab) {
+        key = Qt::Key_Tab;
+        mods |= Qt::ShiftModifier;
+    }
+    const QString id = m_actions->idForKey(key, mods);
+    if (id != u"new-tab"_s && id != u"reopen-tab"_s && id != u"next-tab"_s && id != u"previous-tab"_s
+        && id != u"go-to-tab"_s)
+        return false;
+    m_keyNow = key;
+    m_actions->trigger(id);
+    m_keyNow = 0;
+    return true;
 }
 
 bool Browser::shortcutsKey(int key, Qt::KeyboardModifiers mods)

@@ -157,7 +157,17 @@ Rectangle {
         id: mouse
         anchors { fill: parent; leftMargin: disclosure.visible ? disclosure.x + disclosure.width : 0 }
         hoverEnabled: true
-        onClicked: row.browser.clickRow(row.index)
-        onDoubleClicked: row.browser.doubleClickRow(row.index)
+        // The middle button opens a folder in a new tab, in the background.
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        onClicked: event => {
+            if (event.button === Qt.MiddleButton)
+                row.browser.openRowInTab(row.index)
+            else
+                row.browser.clickRow(row.index)
+        }
+        onDoubleClicked: event => {
+            if (event.button === Qt.LeftButton)
+                row.browser.doubleClickRow(row.index)
+        }
     }
 }

@@ -129,6 +129,18 @@ QString Actions::label(const QString &id) const
     return it == m_actions.cend() ? QString() : it->label;
 }
 
+void Actions::setLabel(const QString &id, const QString &label)
+{
+    const auto it = m_actions.find(id);
+    if (it == m_actions.end() || it->label == label)
+        return;
+    it->label = label;
+    emit menusChanged();
+    // An open menu shows the new label too.
+    if (!m_levels.isEmpty())
+        emit menuChanged();
+}
+
 QString Actions::shortcut(const QString &id) const
 {
     const auto it = m_actions.constFind(id);
@@ -181,6 +193,12 @@ QString Actions::keyText(const Key &key)
         return text + tr("Home");
     case Qt::Key_End:
         return text + tr("End");
+    case Qt::Key_Tab:
+        return text + tr("Tab");
+    case Qt::Key_PageUp:
+        return text + tr("PgUp");
+    case Qt::Key_PageDown:
+        return text + tr("PgDown");
     case Qt::Key_Comma:
         return text + QStringLiteral(",");
     case Qt::Key_Period:

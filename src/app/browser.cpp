@@ -498,6 +498,9 @@ bool Browser::handleKey(int key, int modifiers, const QString &text)
     // While the preview is open, the keys move it along the files or close it.
     if (m_preview->isOpen())
         return previewKey(key, mods);
+    // The keys between tabs work wherever the keys are: in a search, a place or the sidebar.
+    if (tabKey(key, mods))
+        return true;
     // While the search is shown, it takes the keys; only the commands about the window work.
     if (m_searchShown) {
         if (searchKey(key, mods))

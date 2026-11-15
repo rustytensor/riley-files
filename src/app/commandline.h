@@ -13,7 +13,7 @@ struct CommandLine
     bool timeStart = false;  // like checkUi, but waits for the first frame showing the folder's files
     QStringList locations;   // folders, files or file:// URLs to open, in order
 
-    // The first location, or empty for the home folder.
+    // The first location, or empty for the home folder (the window opens a tab for each).
     QString startLocation() const { return locations.isEmpty() ? QString() : locations.first(); }
 
     // Reads `arguments` (the program name first). --help and --version print and exit here, as

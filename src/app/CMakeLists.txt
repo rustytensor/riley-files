@@ -9,7 +9,7 @@
 
 qt_add_library(riley-ui SHARED
     actions.h actions.cpp
-    browser.h browser.cpp browseractions.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
+    browser.h browser.cpp browseractions.cpp browserlocation.cpp browserprefs.cpp browserapps.cpp browsersearch.cpp
     browserplaces.cpp browserversions.cpp browsergraph.cpp browserreadme.cpp
     browserindex.cpp
     readme.h readme.cpp
@@ -22,6 +22,7 @@ qt_add_library(riley-ui SHARED
     fileops.h fileops.cpp
     foldercolumn.h foldercolumn.cpp
     appwindow.h appwindow.cpp
+    tabs.h tabs.cpp
     commandline.h commandline.cpp
     coretypes.h
     thumbnailprovider.h thumbnailprovider.cpp
@@ -35,6 +36,7 @@ set(rf_qml_files
     qml/Main.qml
     qml/Theme.qml
     qml/HeaderBar.qml
+    qml/TabStrip.qml
     qml/Sidebar.qml
     qml/SidebarIcon.qml
     qml/ContentArea.qml

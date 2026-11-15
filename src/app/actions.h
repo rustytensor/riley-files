@@ -97,6 +97,8 @@ public:
     bool isCheckable(const QString &id) const;
     bool isChecked(const QString &id) const;
     QString label(const QString &id) const;
+    // A new label for an action (Close Window reads Close Tab while there are several tabs).
+    void setLabel(const QString &id, const QString &label);
     QString shortcut(const QString &id) const;
 
     // "Ctrl+Shift+N", "Alt+Left", "Delete", "F1", "Ctrl+,".
