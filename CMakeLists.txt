@@ -50,5 +50,9 @@ install(FILES share/riley-files.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES share/riley-files.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+foreach(size 16 22 24 32 48 64 128 256 512)
+    install(FILES share/icons/hicolor/${size}x${size}/apps/riley-files.png
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps)
+endforeach()
 install(FILES LICENSE
     DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/riley-files)
